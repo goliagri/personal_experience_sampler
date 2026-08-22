@@ -4,13 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-**Design complete, pre-implementation.** There is no code, build system, or test suite yet — only two authoritative documents:
+**Milestones 1–2 implemented** (shared core + conformance in Python and Kotlin; desktop MVP: engine, sync over a local-folder CloudStore, tkinter UI). Next per §17: Drive store (M3), Android MVP (M4), sync hardening (M5). Authoritative documents:
 
-- `SPECIFICATION.md` — the full technical spec (v0.1): data model, scheduler, sync, clients, repo layout, milestones.
+- `SPECIFICATION.md` — the full technical spec: data model, scheduler, sync, clients, repo layout, milestones.
 - `PROJECT_PREFERENCES.md` — the owner's intent and priorities. **Read it first**; when the spec is silent or ambiguous, resolve in the direction of these preferences.
-- `TEST_PLAN.md` — the planned verification suite: conformance-vector inventory, cross-device scenario tests, properties, manual checklist, and per-milestone done-gates. Hard cases are marked **[H]**; implement those tests first.
+- `TEST_PLAN.md` — the verification suite: conformance-vector inventory, cross-device scenario tests, properties, manual checklist, and per-milestone done-gates. Hard cases are marked **[H]**; implement those tests first.
 
-All implementation work should follow the spec's repository layout (§16) and milestone order (§17): core + conformance fixtures first, then desktop MVP (Python/tkinter), then Android MVP (Kotlin/Compose), then sync hardening.
+Commands:
+
+- Python tests: `cd desktop && python -m pytest` (needs `pytest hypothesis`; subsets: `tests/conformance`, `tests/properties`, `tests/scenarios`; single test: `python -m pytest tests/scenarios/test_expiry_snooze.py::test_fire_expire_backlog`).
+- Kotlin tests: `cd android && ./gradlew :core:test` (JDK 17+).
+- Regenerate conformance vectors (from repo root): `python3 spec/tools/generate_vectors.py` — only alongside a reviewed core change, and any core change must keep **both** languages' cores and suites in step.
+- Run the desktop app: `cd desktop && python -m pes` (`--data-dir`, `--cloud-dir`).
+- Lint: `ruff check desktop/pes desktop/tests`.
+
+Key desktop layering: `pes/core/` is pure and deterministic (mirrored file-for-file by `android/core`); `pes/engine.py` is the headless runtime (injected clock + notifier — scenario tests drive it with `FakeClock`/`RecordingNotifier`, two SimDevices sharing one folder); `pes/sync.py` implements §8.4 over `pes/store/cloud.py`'s `CloudStore`; `pes/ui/` (tkinter) and `pes/tray.py` sit on top and contain no scheduling/fold logic.
 
 ## What this is
 

@@ -7,6 +7,7 @@ from datetime import date, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
+
 from pes.core.scheduler import resolve_day
 from pes.core.timeutil import local_day_bounds
 

@@ -81,8 +81,12 @@ def backfill(
             if scheduled + expiry_s < now:
                 out.append({"ev": "expired", "config_v": config_v, **base})
             continue
-        # 4. Never fired anywhere -> unobserved (once; keeps backfill
-        #    idempotent when another device already logged it).
-        if "unobserved" not in types:
+        # 4. Never fired anywhere -> unobserved, but only once the active
+        #    window has closed: a still-open sample can legitimately fire
+        #    late (fired.t lags scheduled, §5.1), so the live scheduler owns
+        #    it and the caller must hold its watermark back to revisit it.
+        #    Guarded on "not already present" to keep backfill idempotent
+        #    when another device already logged it.
+        if scheduled + expiry_s <= now and "unobserved" not in types:
             out.append({"ev": "unobserved", "config_v": config_v, **base})
     return out

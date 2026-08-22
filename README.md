@@ -17,8 +17,13 @@ Authoritative documents: [`SPECIFICATION.md`](SPECIFICATION.md) (design) and
   (PRNG, fdlibm-ln bit patterns, schedules, folds, CSV exports, config
   validation). Regenerate with `python3 spec/tools/generate_vectors.py`;
   regenerated vectors must only change together with a reviewed core change.
-- `desktop/` — Python 3.11+ package: `pes/core/` (shared deterministic core)
-  and, later, the tkinter client. Tests: `cd desktop && python -m pytest`.
+- `desktop/` — Python 3.11+ package: `pes/core/` (shared deterministic core),
+  `pes/store/` (SQLite + CloudStore), `pes/engine.py` (headless runtime:
+  firing, snooze/expiry, backfill), `pes/sync.py` (§8.4 procedure), and
+  `pes/ui/` (tkinter client). Run it with `cd desktop && python -m pes`
+  (`--data-dir`, `--cloud-dir` to relocate; the cloud is a local folder until
+  the Drive store lands at Milestone 3). Tests: `cd desktop && python -m pytest`
+  (conformance + property + multi-device scenario suites).
 - `android/` — Kotlin Gradle project. `core` is a pure-JVM module mirroring
   `desktop/pes/core` file-for-file; it runs the same `spec/` fixtures
   (`cd android && ./gradlew :core:test`). The `:app` Android module arrives at
