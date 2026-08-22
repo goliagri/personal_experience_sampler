@@ -1,8 +1,9 @@
 """Entry point: ``python -m pes`` starts the tray-resident desktop client.
 
-The cloud folder defaults to a local folder store (Milestone 2); the Google
-Drive backend arrives at Milestone 3 and will use the same CloudStore
-interface.
+Sync uses a local folder store by default; the Google Drive backend is
+enabled from Settings after connecting an OAuth client (``--client-secret``
+records where the client JSON lives — the file itself is only ever read,
+never copied or uploaded).
 """
 
 from __future__ import annotations
@@ -32,6 +33,12 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="cloud folder path (local-folder store; default <data-dir>/cloud)",
     )
+    parser.add_argument(
+        "--client-secret",
+        type=Path,
+        default=None,
+        help="path to the Google OAuth 'installed' client JSON (remembered)",
+    )
     args = parser.parse_args(argv)
 
     data_dir: Path = args.data_dir
@@ -45,6 +52,10 @@ def main(argv: list[str] | None = None) -> int:
 
     bootstrap_db = Db(data_dir / "pes.sqlite")
     device_id = get_device_id(bootstrap_db)
+    if args.client_secret:
+        bootstrap_db.kv_set(
+            "device", "drive_client_secret", str(args.client_secret.resolve())
+        )
     bootstrap_db.close()
 
     app = App(data_dir=data_dir, cloud_dir=cloud_dir, device_id=device_id)

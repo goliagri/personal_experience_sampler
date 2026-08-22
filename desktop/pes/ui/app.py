@@ -18,7 +18,7 @@ from zoneinfo import ZoneInfo
 from ..core.timeutil import fmt_utc
 from ..engine import Engine
 from ..notify import DesktopNotifier
-from ..store import Db, LocalFolderStore
+from ..store import AuthorizedSession, Db, DriveAuth, DriveStore, LocalFolderStore
 from ..sync import Syncer
 from . import theme
 from .answer import AnswerWindow
@@ -257,6 +257,21 @@ class App:
 
     # -- sync -------------------------------------------------------------
 
+    def cloud_backend(self) -> str:
+        return self.db.kv_get("device", "cloud_backend") or "folder"
+
+    def drive_auth(self) -> DriveAuth:
+        secret = self.db.kv_get("device", "drive_client_secret") or ""
+        return DriveAuth(secret, self.data_dir / "drive_token.json")
+
+    def _make_store(self, db: Db):
+        """Cloud store for a sync run; ``db`` is the worker's own connection."""
+        if (db.kv_get("device", "cloud_backend") or "folder") == "drive":
+            secret = db.kv_get("device", "drive_client_secret") or ""
+            auth = DriveAuth(secret, self.data_dir / "drive_token.json")
+            return DriveStore(AuthorizedSession(auth), db)
+        return LocalFolderStore(self.cloud_dir)
+
     def _periodic_sync(self) -> None:
         self.sync_async()
         self.root.after(SYNC_INTERVAL_S * 1000, self._periodic_sync)
@@ -271,7 +286,7 @@ class App:
                 db = Db(self.data_dir / "pes.sqlite")
                 engine = Engine(db, self.device_id, self.notifier)
                 engine.clock = self.engine.clock
-                syncer = Syncer(engine, LocalFolderStore(self.cloud_dir))
+                syncer = Syncer(engine, self._make_store(db))
                 result = syncer.sync()
                 message = f"Synced {fmt_utc(engine.clock.now())}"
                 if result["warnings"]:

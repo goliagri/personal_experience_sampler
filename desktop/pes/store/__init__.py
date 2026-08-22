@@ -2,5 +2,16 @@
 
 from .cloud import CloudStore, LocalFolderStore
 from .db import Db
+from .drive import AuthorizedSession, DriveStore, MultipleRootsError
+from .oauth import DriveAuth, DriveAuthError
 
-__all__ = ["CloudStore", "Db", "LocalFolderStore"]
+__all__ = [
+    "AuthorizedSession",
+    "CloudStore",
+    "Db",
+    "DriveAuth",
+    "DriveAuthError",
+    "DriveStore",
+    "LocalFolderStore",
+    "MultipleRootsError",
+]

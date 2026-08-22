@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-**Milestones 1–2 implemented** (shared core + conformance in Python and Kotlin; desktop MVP: engine, sync over a local-folder CloudStore, tkinter UI). Next per §17: Drive store (M3), Android MVP (M4), sync hardening (M5). Authoritative documents:
+**Milestones 1–3 implemented** (shared core + conformance in Python and Kotlin; desktop MVP: engine, sync over a local-folder CloudStore, tkinter UI; Drive store: library-free OAuth in `desktop/pes/store/oauth.py` + REST `DriveStore` in `drive.py`, tested against `tests/scenarios/drive_fake.py`). The Kotlin Drive store is deferred to the Android MVP (M4, owner's decision). Next per §17: Android MVP (M4), sync hardening (M5). Authoritative documents:
 
 - `SPECIFICATION.md` — the full technical spec: data model, scheduler, sync, clients, repo layout, milestones.
 - `PROJECT_PREFERENCES.md` — the owner's intent and priorities. **Read it first**; when the spec is silent or ambiguous, resolve in the direction of these preferences.

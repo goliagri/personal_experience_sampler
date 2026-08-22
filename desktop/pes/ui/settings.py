@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import threading
 import tkinter as tk
 from tkinter import ttk
 from zoneinfo import ZoneInfo
@@ -77,9 +78,12 @@ class SettingsScreen(ttk.Frame):
         box.bind("<<ComboboxSelected>>", lambda e: self._set_theme())
 
         ttk.Separator(self).pack(fill="x", pady=8)
+        self._drive_section(engine)
+
+        ttk.Separator(self).pack(fill="x", pady=8)
         ttk.Label(
             self,
-            text=f"Data: {self.app.data_dir}\nCloud folder: {self.app.cloud_dir}",
+            text=f"Data: {self.app.data_dir}\nLocal cloud folder: {self.app.cloud_dir}",
             foreground=self.app.colors["muted"],
         ).pack(anchor="w")
 
@@ -92,6 +96,75 @@ class SettingsScreen(ttk.Frame):
             " (milestone 5).",
             foreground=self.app.colors["muted"],
         ).pack(anchor="w")
+
+    def _drive_section(self, engine) -> None:
+        ttk.Label(self, text="Google Drive sync", font=theme.FONT_BOLD).pack(anchor="w")
+        backend = self.app.cloud_backend()
+        connected = self.app.drive_auth().connected()
+        if backend == "drive":
+            status = "Syncing to Google Drive" if connected else (
+                "Drive selected but not authorized - reconnect"
+            )
+        else:
+            status = "Syncing to the local folder below"
+        ttk.Label(self, text=status, foreground=self.app.colors["muted"]).pack(
+            anchor="w", pady=(0, 2)
+        )
+
+        secret_row = ttk.Frame(self)
+        secret_row.pack(fill="x", pady=2)
+        ttk.Label(secret_row, text="OAuth client JSON", width=24, anchor="w").pack(
+            side="left"
+        )
+        self.secret_var = tk.StringVar(
+            value=engine.db.kv_get("device", "drive_client_secret") or ""
+        )
+        ttk.Entry(secret_row, textvariable=self.secret_var, width=44).pack(side="left")
+
+        buttons = ttk.Frame(self)
+        buttons.pack(fill="x", pady=2)
+        if backend == "drive":
+            ttk.Button(
+                buttons, text="Disconnect (use local folder)", command=self._drive_off
+            ).pack(side="left")
+        else:
+            ttk.Button(
+                buttons, text="Connect Google Drive...", command=self._drive_connect
+            ).pack(side="left")
+
+    def _drive_connect(self) -> None:
+        secret = self.secret_var.get().strip()
+        if not secret:
+            self.app.set_status("Enter the path to the OAuth client JSON first")
+            return
+        self.app.db.kv_set("device", "drive_client_secret", secret)
+        auth = self.app.drive_auth()
+        self.app.set_status("Waiting for browser authorization...")
+
+        def work() -> None:
+            try:
+                auth.authorize()
+                message, ok = "Google Drive connected", True
+            except OSError as exc:
+                message, ok = f"Drive connect failed: {exc}", False
+
+            def finish() -> None:
+                if ok:
+                    self.app.db.kv_set("device", "cloud_backend", "drive")
+                    self.app.sync_async()
+                self.app.set_status(message)
+                self.refresh()
+
+            self.app.root.after(0, finish)
+
+        threading.Thread(target=work, daemon=True, name="pes-drive-auth").start()
+
+    def _drive_off(self) -> None:
+        self.app.db.kv_set("device", "cloud_backend", "folder")
+        auth = self.app.drive_auth()
+        threading.Thread(target=auth.disconnect, daemon=True).start()
+        self.app.set_status("Drive disconnected; syncing to the local folder")
+        self.refresh()
 
     def _save_config(self) -> None:
         timezone = self.vars["timezone"].get().strip()

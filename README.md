@@ -21,8 +21,10 @@ Authoritative documents: [`SPECIFICATION.md`](SPECIFICATION.md) (design) and
   `pes/store/` (SQLite + CloudStore), `pes/engine.py` (headless runtime:
   firing, snooze/expiry, backfill), `pes/sync.py` (§8.4 procedure), and
   `pes/ui/` (tkinter client). Run it with `cd desktop && python -m pes`
-  (`--data-dir`, `--cloud-dir` to relocate; the cloud is a local folder until
-  the Drive store lands at Milestone 3). Tests: `cd desktop && python -m pytest`
+  (`--data-dir`, `--cloud-dir` to relocate). Sync targets a local folder by
+  default; to use Google Drive, pass `--client-secret <path-to-oauth-json>`
+  once, then Settings > "Connect Google Drive..." (browser consent; the token
+  is stored locally, never synced). Tests: `cd desktop && python -m pytest`
   (conformance + property + multi-device scenario suites).
 - `android/` — Kotlin Gradle project. `core` is a pure-JVM module mirroring
   `desktop/pes/core` file-for-file; it runs the same `spec/` fixtures
