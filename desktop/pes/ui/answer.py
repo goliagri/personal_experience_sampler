@@ -238,7 +238,7 @@ class AnswerWindow(tk.Toplevel):
         ref = stream.get("survey", {})
         self.survey = self.engine.db.survey(ref.get("id", ""), ref.get("version", 0))
         self.widgets: list[FieldWidget] = []
-        self.title(f"Answer — {self.stream_name}")
+        self.title(f"Answer - {self.stream_name}")
         self.geometry("560x640")
 
         now = self.engine.clock.now()
@@ -273,7 +273,7 @@ class AnswerWindow(tk.Toplevel):
             banner = tk.Label(
                 self,
                 text=(
-                    f"LATE — originally {self._local_str(self.scheduled)}, {ago}."
+                    f"LATE - originally {self._local_str(self.scheduled)}, {ago}."
                     " This answer will be marked late."
                 ),
                 bg=colors["warn_bg"],

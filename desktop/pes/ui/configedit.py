@@ -27,7 +27,7 @@ def next_local_midnight(now: int, timezone: str) -> int:
 def ask_effective_from(parent, now: int, timezone: str) -> str | None:
     """Modal choice: next hour / next midnight / custom UTC instant."""
     dialog = tk.Toplevel(parent)
-    dialog.title("Apply from…")
+    dialog.title("Apply from...")
     dialog.transient(parent.winfo_toplevel())
     dialog.grab_set()
     choice = tk.StringVar(value="hour")

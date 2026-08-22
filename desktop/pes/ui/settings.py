@@ -57,7 +57,7 @@ class SettingsScreen(ttk.Frame):
         ttk.Button(name_row, text="Set", command=self._save_name).pack(side="left", padx=4)
         ttk.Label(
             self,
-            text=f"Device id: {engine.device_id}   ·   role: "
+            text=f"Device id: {engine.device_id}   |   role: "
             f"{engine.db.kv_get('device', 'role') or '(unset)'}",
             foreground=self.app.colors["muted"],
         ).pack(anchor="w", pady=2)
@@ -83,7 +83,7 @@ class SettingsScreen(ttk.Frame):
             foreground=self.app.colors["muted"],
         ).pack(anchor="w")
 
-        ttk.Button(self, text="Show schedule (next 48 h)…", command=self._show_schedule).pack(
+        ttk.Button(self, text="Show schedule (next 48 h)...", command=self._show_schedule).pack(
             anchor="w", pady=8
         )
         ttk.Label(
@@ -116,11 +116,12 @@ class SettingsScreen(ttk.Frame):
 
     def _set_theme(self) -> None:
         self.app.db.kv_set("device", "theme", self.theme_var.get())
-        self.app.set_status("Theme saved — restart to apply")
+        self.app.apply_theme(self.theme_var.get())
+        self.app.set_status(f"Theme: {self.theme_var.get()}")
 
     def _show_schedule(self) -> None:
         window = tk.Toplevel(self)
-        window.title("Schedule — next 48 h")
+        window.title("Schedule - next 48 h")
         text = tk.Text(window, width=56, height=28)
         text.pack(fill="both", expand=True)
         rows = self.app.engine.db.conn.execute(

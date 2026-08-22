@@ -51,7 +51,7 @@ class StreamsScreen(ttk.Frame):
                 text="Fire test ping",
                 command=lambda s=stream: self._test_ping(s["id"]),
             ).pack(side="right", padx=4)
-        ttk.Button(self, text="New stream…", command=lambda: StreamEditor(self.app, None)).pack(
+        ttk.Button(self, text="New stream...", command=lambda: StreamEditor(self.app, None)).pack(
             anchor="w", pady=8
         )
 

@@ -49,14 +49,97 @@ class App:
     # -- construction -----------------------------------------------------
 
     def _style(self) -> None:
+        # "clam" is the one built-in ttk engine that honors color settings on
+        # every platform; the Windows/mac native engines ignore most of them.
         style = ttk.Style(self.root)
+        style.theme_use("clam")
         colors = self.colors
         self.root.configure(bg=colors["bg"])
-        style.configure(".", background=colors["bg"], foreground=colors["fg"])
+
+        style.configure(
+            ".",
+            background=colors["bg"],
+            foreground=colors["fg"],
+            fieldbackground=colors["entry_bg"],
+            troughcolor=colors["card"],
+            bordercolor=colors["muted"],
+            lightcolor=colors["bg"],
+            darkcolor=colors["bg"],
+            insertcolor=colors["fg"],
+            selectbackground=colors["accent"],
+            selectforeground=colors["bg"],
+        )
         style.configure("TFrame", background=colors["bg"])
         style.configure("TLabel", background=colors["bg"], foreground=colors["fg"])
         style.configure("Card.TFrame", background=colors["card"])
         style.configure("Card.TLabel", background=colors["card"], foreground=colors["fg"])
+        style.configure("TButton", background=colors["card"], foreground=colors["fg"])
+        style.map(
+            "TButton",
+            background=[("active", colors["accent"]), ("pressed", colors["accent"])],
+            foreground=[("active", colors["bg"]), ("pressed", colors["bg"])],
+        )
+        for kind in ("TCheckbutton", "TRadiobutton"):
+            style.configure(kind, background=colors["bg"], foreground=colors["fg"])
+            style.map(kind, background=[("active", colors["bg"])])
+        for kind in ("TEntry", "TCombobox", "TSpinbox"):
+            style.configure(
+                kind,
+                fieldbackground=colors["entry_bg"],
+                foreground=colors["fg"],
+                insertcolor=colors["fg"],
+            )
+            style.map(kind, fieldbackground=[("readonly", colors["card"])])
+        style.configure(
+            "Treeview",
+            background=colors["card"],
+            fieldbackground=colors["card"],
+            foreground=colors["fg"],
+        )
+        style.configure(
+            "Heading", background=colors["bg"], foreground=colors["fg"]
+        )
+        style.map("Treeview", background=[("selected", colors["accent"])])
+        style.configure("TNotebook", background=colors["bg"])
+        style.configure(
+            "TNotebook.Tab", background=colors["card"], foreground=colors["fg"]
+        )
+        style.map("TNotebook.Tab", background=[("selected", colors["bg"])])
+        for kind in ("Vertical.TScrollbar", "Horizontal.TScrollbar"):
+            style.configure(
+                kind, background=colors["card"], troughcolor=colors["bg"]
+            )
+        style.configure("TSeparator", background=colors["muted"])
+
+        # Classic (non-ttk) widgets — Text, Listbox, Canvas, Scale, dialogs —
+        # take their defaults from the option database. Only affects widgets
+        # created afterwards; theme switches rebuild the screens anyway.
+        for pattern, value in (
+            ("*Text.background", colors["entry_bg"]),
+            ("*Text.foreground", colors["fg"]),
+            ("*Text.insertBackground", colors["fg"]),
+            ("*Listbox.background", colors["entry_bg"]),
+            ("*Listbox.foreground", colors["fg"]),
+            ("*Canvas.background", colors["bg"]),
+            ("*Scale.background", colors["bg"]),
+            ("*Scale.foreground", colors["fg"]),
+            ("*Scale.troughColor", colors["card"]),
+            ("*Scale.highlightBackground", colors["bg"]),
+            ("*Toplevel.background", colors["bg"]),
+            ("*Label.background", colors["bg"]),
+            ("*Label.foreground", colors["fg"]),
+            ("*selectBackground", colors["accent"]),
+            ("*selectForeground", colors["bg"]),
+        ):
+            self.root.option_add(pattern, value)
+
+    def apply_theme(self, name: str) -> None:
+        """Switch themes live: restyle, then rebuild every screen."""
+        self.theme_name = name
+        self.colors = theme.THEMES[name]
+        self._style()
+        for screen in self.screens.values():
+            screen.refresh()
 
     def _build(self) -> None:
         from .backlog import BacklogScreen
@@ -181,7 +264,7 @@ class App:
     def sync_async(self) -> None:
         if not self._sync_lock.acquire(blocking=False):
             return  # a sync is already running
-        self.set_status("Syncing…")
+        self.set_status("Syncing...")
 
         def work() -> None:
             try:
@@ -192,7 +275,7 @@ class App:
                 result = syncer.sync()
                 message = f"Synced {fmt_utc(engine.clock.now())}"
                 if result["warnings"]:
-                    message += " — " + "; ".join(result["warnings"])
+                    message += " - " + "; ".join(result["warnings"])
                 db.close()
             except Exception as exc:  # noqa: BLE001 - report, retry next trigger
                 message = f"Sync failed: {exc}"

@@ -1,5 +1,5 @@
 """Surveys screen and editor (spec §10.2, §7): form-based field editor plus a
-raw JSON tab as the emergency backup. Surveys are immutable per version —
+raw JSON tab as the emergency backup. Surveys are immutable per version -
 saving always creates the next version."""
 
 from __future__ import annotations
@@ -68,7 +68,7 @@ class SurveysScreen(ttk.Frame):
                 command=lambda d=doc: SurveyEditor(self.app, d),
             ).pack(side="right")
         ttk.Button(
-            self, text="New survey…", command=lambda: SurveyEditor(self.app, None)
+            self, text="New survey...", command=lambda: SurveyEditor(self.app, None)
         ).pack(anchor="w", pady=8)
 
 

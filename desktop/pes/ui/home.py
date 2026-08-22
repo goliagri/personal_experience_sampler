@@ -31,7 +31,7 @@ class HomeScreen(ttk.Frame):
             row = active[0]
             ttk.Label(
                 card,
-                text=f"{self._stream_name(row['stream'])} — {self.app.local_str(parse_utc(row['scheduled_utc']))}",
+                text=f"{self._stream_name(row['stream'])} - {self.app.local_str(parse_utc(row['scheduled_utc']))}",
                 font=theme.FONT_BIG,
                 style="Card.TLabel",
             ).pack(anchor="w")
@@ -82,7 +82,7 @@ class HomeScreen(ttk.Frame):
             ttk.Button(
                 quiet, text="Until turned off", command=lambda: self._set_quiet("indefinite")
             ).pack(side="left", padx=8)
-            ttk.Button(quiet, text="For H:MM…", command=self._quiet_for).pack(side="left")
+            ttk.Button(quiet, text="For H:MM...", command=self._quiet_for).pack(side="left")
 
         # Streams summary with today's counts (fired / answered / expired).
         config = engine.db.latest_config()
@@ -93,7 +93,7 @@ class HomeScreen(ttk.Frame):
         if not streams:
             ttk.Label(
                 box,
-                text="No streams yet — create one under Streams.",
+                text="No streams yet - create one under Streams.",
                 foreground=self.app.colors["muted"],
             ).pack(anchor="w")
         for stream in streams:
@@ -101,7 +101,7 @@ class HomeScreen(ttk.Frame):
             ttk.Label(
                 box,
                 text=(
-                    f"  {stream['name']}  —  today: {fired} fired,"
+                    f"  {stream['name']}  -  today: {fired} fired,"
                     f" {answered} answered, {expired} expired"
                 ),
             ).pack(anchor="w")

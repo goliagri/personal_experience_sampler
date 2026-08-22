@@ -381,8 +381,8 @@ class Engine:
 
         local = datetime.fromtimestamp(scheduled, UTC).astimezone(tz)
         when = local.strftime("%H:%M")
-        title = name if not snoozed_n else f"{name} (snoozed ×{snoozed_n})"
-        self.notifier.notify(sample_id, title, f"Ping at {when} — answer now")
+        title = name if not snoozed_n else f"{name} (snoozed x{snoozed_n})"
+        self.notifier.notify(sample_id, title, f"Ping at {when} - answer now")
 
     def _refire_snoozes(self, now: int) -> None:
         for row in self.db.sample_rows(statuses=["pending"]):

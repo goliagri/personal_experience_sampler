@@ -57,7 +57,7 @@ def test_snooze_refires_and_counts(mkdevice, clock):
     assert kinds == ["fired", "snoozed", "fired"]
     assert SAMPLE in dev.notifier.active()
     _, title, _ = dev.notifier.shown[-1]
-    assert "snoozed ×1" in title
+    assert "snoozed x1" in title
 
     row = dev.db.sample_row(SAMPLE)
     assert row["status"] == "pending" and row["snoozes"] == 1
