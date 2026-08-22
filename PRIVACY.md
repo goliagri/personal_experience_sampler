@@ -1,0 +1,1 @@
+Personal Experience Sample is a self hosted application intended for a single user. It stores the user data in personal google drive files. no data is transmitted to, collected by, or shared with the developer or any third party. 
