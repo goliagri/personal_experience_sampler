@@ -1,0 +1,45 @@
+[
+  {
+    "column": "f_mood",
+    "field_id": "mood",
+    "type": "number",
+    "survey_versions": [
+      1,
+      2
+    ]
+  },
+  {
+    "column": "f_tags",
+    "field_id": "tags",
+    "type": "tags",
+    "survey_versions": [
+      1,
+      2
+    ]
+  },
+  {
+    "column": "f_note",
+    "field_id": "note",
+    "type": "text",
+    "survey_versions": [
+      1
+    ]
+  },
+  {
+    "column": "f_context",
+    "field_id": "context",
+    "type": "choice",
+    "survey_versions": [
+      1,
+      2
+    ]
+  },
+  {
+    "column": "f_energy",
+    "field_id": "energy",
+    "type": "number",
+    "survey_versions": [
+      2
+    ]
+  }
+]

@@ -1,0 +1,245 @@
+{
+  "stream": "daily",
+  "timezone": "America/Los_Angeles",
+  "expiry_minutes": 60,
+  "surveys": [
+    {
+      "id": "daily",
+      "version": 1,
+      "title": "Daily",
+      "fields": [
+        {
+          "id": "mood",
+          "type": "number",
+          "label": "Mood",
+          "min": 1,
+          "max": 7,
+          "integer": true
+        },
+        {
+          "id": "tags",
+          "type": "tags",
+          "label": "Tags"
+        },
+        {
+          "id": "note",
+          "type": "text",
+          "label": "Note",
+          "multiline": true
+        },
+        {
+          "id": "context",
+          "type": "choice",
+          "label": "Where",
+          "options": [
+            "home",
+            "work",
+            "out"
+          ],
+          "cardinality": "multi",
+          "display": "checkbox"
+        }
+      ]
+    },
+    {
+      "id": "daily",
+      "version": 2,
+      "title": "Daily",
+      "fields": [
+        {
+          "id": "mood",
+          "type": "number",
+          "label": "Mood",
+          "min": 1,
+          "max": 7,
+          "integer": true
+        },
+        {
+          "id": "tags",
+          "type": "tags",
+          "label": "Tags"
+        },
+        {
+          "id": "energy",
+          "type": "number",
+          "label": "Energy"
+        },
+        {
+          "id": "context",
+          "type": "choice",
+          "label": "Where",
+          "options": [
+            "home",
+            "work",
+            "out"
+          ],
+          "cardinality": "multi",
+          "display": "checkbox"
+        }
+      ]
+    }
+  ],
+  "events": {
+    "events/phone-a3f2c1d0/2026-08.jsonl": [
+      {
+        "ev": "fired",
+        "t": "2026-08-20T10:00:01Z",
+        "dev": "phone-a3f2c1d0",
+        "sample": "daily|2026-08-20T10:00:00Z",
+        "stream": "daily",
+        "config_v": 1,
+        "scheduled": "2026-08-20T10:00:00Z"
+      },
+      {
+        "ev": "answered",
+        "t": "2026-08-20T10:02:00Z",
+        "dev": "phone-a3f2c1d0",
+        "sample": "daily|2026-08-20T10:00:00Z",
+        "stream": "daily",
+        "survey": {
+          "id": "daily",
+          "version": 1
+        },
+        "answers": {
+          "mood": 5,
+          "tags": [
+            "work.writing",
+            "deep"
+          ],
+          "note": "line one\nwith \"quotes\", commas",
+          "context": [
+            "home",
+            "work"
+          ]
+        },
+        "loc": {
+          "lat": 34.05,
+          "lon": -118.25,
+          "acc_m": 20,
+          "age_s": 12
+        }
+      },
+      {
+        "ev": "fired",
+        "t": "2026-08-21T11:00:00Z",
+        "dev": "phone-a3f2c1d0",
+        "sample": "daily|2026-08-21T11:00:00Z",
+        "stream": "daily",
+        "config_v": 1,
+        "scheduled": "2026-08-21T11:00:00Z",
+        "test": true
+      },
+      {
+        "ev": "answered",
+        "t": "2026-08-21T11:01:00Z",
+        "dev": "phone-a3f2c1d0",
+        "sample": "daily|2026-08-21T11:00:00Z",
+        "stream": "daily",
+        "survey": {
+          "id": "daily",
+          "version": 1
+        },
+        "answers": {
+          "tags": [
+            "test"
+          ]
+        },
+        "partial": true
+      },
+      {
+        "ev": "fired",
+        "t": "2026-08-22T12:00:02Z",
+        "dev": "phone-a3f2c1d0",
+        "sample": "daily|2026-08-22T12:00:00Z",
+        "stream": "daily",
+        "config_v": 1,
+        "scheduled": "2026-08-22T12:00:00Z"
+      },
+      {
+        "ev": "expired",
+        "t": "2026-08-22T13:00:00Z",
+        "dev": "phone-a3f2c1d0",
+        "sample": "daily|2026-08-22T12:00:00Z",
+        "stream": "daily",
+        "config_v": 1
+      },
+      {
+        "ev": "suppressed",
+        "t": "2026-08-23T13:00:00Z",
+        "dev": "phone-a3f2c1d0",
+        "sample": "daily|2026-08-23T13:00:00Z",
+        "stream": "daily",
+        "reason": "quiet_zone"
+      }
+    ],
+    "events/laptop-9c11aa00/2026-08.jsonl": [
+      {
+        "ev": "fired",
+        "t": "2026-08-24T14:00:01Z",
+        "dev": "laptop-9c11aa00",
+        "sample": "daily|2026-08-24T14:00:00Z",
+        "stream": "daily",
+        "config_v": 2,
+        "scheduled": "2026-08-24T14:00:00Z"
+      },
+      {
+        "ev": "answered",
+        "t": "2026-08-24T16:30:00Z",
+        "dev": "laptop-9c11aa00",
+        "sample": "daily|2026-08-24T14:00:00Z",
+        "stream": "daily",
+        "survey": {
+          "id": "daily",
+          "version": 2
+        },
+        "answers": {
+          "mood": 3,
+          "tags": [
+            "rest"
+          ],
+          "energy": 2.5,
+          "context": [
+            "home"
+          ]
+        }
+      },
+      {
+        "ev": "fired",
+        "t": "2026-08-25T15:00:00Z",
+        "dev": "laptop-9c11aa00",
+        "sample": "daily|2026-08-25T15:00:00Z",
+        "stream": "daily",
+        "config_v": 2,
+        "scheduled": "2026-08-25T15:00:00Z"
+      },
+      {
+        "ev": "answered",
+        "t": "2026-08-25T15:05:00Z",
+        "dev": "laptop-9c11aa00",
+        "sample": "daily|2026-08-25T15:00:00Z",
+        "stream": "daily",
+        "survey": {
+          "id": "daily",
+          "version": 2
+        },
+        "answers": {
+          "mood": 4,
+          "tags": [
+            "x"
+          ],
+          "context": [
+            "out"
+          ]
+        }
+      },
+      {
+        "ev": "retracted",
+        "t": "2026-08-25T15:06:00Z",
+        "dev": "laptop-9c11aa00",
+        "sample": "daily|2026-08-25T15:00:00Z",
+        "stream": "daily"
+      }
+    ]
+  },
+  "note": "covers: all four field types, ; joins, embedded newline/quote/comma, missing optional fields, partial answer, test row, retracted row, late answer, survey version union in f_ columns"
+}

@@ -1,0 +1,1254 @@
+{
+  "cases": [
+    {
+      "name": "precedence_retracted_over_answered",
+      "note": "retracted wins; prior_status keeps answered",
+      "expiry_minutes": 60,
+      "files": {
+        "events/phone-a3f2c1d0/2026-08.jsonl": [
+          {
+            "ev": "fired",
+            "t": "2026-08-20T15:00:02Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "config_v": 1,
+            "scheduled": "2026-08-20T15:00:00Z",
+            "test": false
+          },
+          {
+            "ev": "answered",
+            "t": "2026-08-20T15:01:00Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "survey": {
+              "id": "s",
+              "version": 1
+            },
+            "answers": {
+              "tags": [
+                "work"
+              ]
+            }
+          },
+          {
+            "ev": "retracted",
+            "t": "2026-08-20T16:00:00Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts"
+          }
+        ]
+      },
+      "expected": {
+        "sample": "thoughts|2026-08-20T15:00:00Z",
+        "stream": "thoughts",
+        "scheduled_utc": "2026-08-20T15:00:00Z",
+        "status": "retracted",
+        "prior_status": "answered",
+        "observed": true,
+        "test": false,
+        "snoozes": 0,
+        "fired_on": [
+          "phone-a3f2c1d0"
+        ],
+        "answered_on": "phone-a3f2c1d0",
+        "answered_at": "2026-08-20T15:01:00Z",
+        "latency_s": 60,
+        "late": false,
+        "partial": false,
+        "survey_id": "s",
+        "survey_version": 1,
+        "answers": {
+          "tags": [
+            "work"
+          ]
+        },
+        "loc": null,
+        "suppressed_reason": null,
+        "duplicate_answers": 0,
+        "config_version": 1
+      },
+      "expected_warning_count": 0
+    },
+    {
+      "name": "precedence_answered_over_skipped",
+      "note": "",
+      "expiry_minutes": 60,
+      "files": {
+        "events/phone-a3f2c1d0/2026-08.jsonl": [
+          {
+            "ev": "fired",
+            "t": "2026-08-20T15:00:02Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "config_v": 1,
+            "scheduled": "2026-08-20T15:00:00Z",
+            "test": false
+          },
+          {
+            "ev": "skipped",
+            "t": "2026-08-20T15:00:30Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts"
+          },
+          {
+            "ev": "answered",
+            "t": "2026-08-20T15:01:00Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "survey": {
+              "id": "s",
+              "version": 1
+            },
+            "answers": {
+              "tags": [
+                "work"
+              ]
+            }
+          }
+        ]
+      },
+      "expected": {
+        "sample": "thoughts|2026-08-20T15:00:00Z",
+        "stream": "thoughts",
+        "scheduled_utc": "2026-08-20T15:00:00Z",
+        "status": "answered",
+        "prior_status": null,
+        "observed": true,
+        "test": false,
+        "snoozes": 0,
+        "fired_on": [
+          "phone-a3f2c1d0"
+        ],
+        "answered_on": "phone-a3f2c1d0",
+        "answered_at": "2026-08-20T15:01:00Z",
+        "latency_s": 60,
+        "late": false,
+        "partial": false,
+        "survey_id": "s",
+        "survey_version": 1,
+        "answers": {
+          "tags": [
+            "work"
+          ]
+        },
+        "loc": null,
+        "suppressed_reason": null,
+        "duplicate_answers": 0,
+        "config_version": 1
+      },
+      "expected_warning_count": 0
+    },
+    {
+      "name": "precedence_skipped_over_expired",
+      "note": "",
+      "expiry_minutes": 60,
+      "files": {
+        "events/phone-a3f2c1d0/2026-08.jsonl": [
+          {
+            "ev": "fired",
+            "t": "2026-08-20T15:00:02Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "config_v": 1,
+            "scheduled": "2026-08-20T15:00:00Z",
+            "test": false
+          },
+          {
+            "ev": "expired",
+            "t": "2026-08-20T16:00:00Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "config_v": 1
+          },
+          {
+            "ev": "skipped",
+            "t": "2026-08-20T15:30:00Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts"
+          }
+        ]
+      },
+      "expected": {
+        "sample": "thoughts|2026-08-20T15:00:00Z",
+        "stream": "thoughts",
+        "scheduled_utc": "2026-08-20T15:00:00Z",
+        "status": "skipped",
+        "prior_status": null,
+        "observed": true,
+        "test": false,
+        "snoozes": 0,
+        "fired_on": [
+          "phone-a3f2c1d0"
+        ],
+        "answered_on": null,
+        "answered_at": null,
+        "latency_s": null,
+        "late": false,
+        "partial": false,
+        "survey_id": null,
+        "survey_version": null,
+        "answers": {},
+        "loc": null,
+        "suppressed_reason": null,
+        "duplicate_answers": 0,
+        "config_version": 1
+      },
+      "expected_warning_count": 0
+    },
+    {
+      "name": "precedence_expired_over_suppressed",
+      "note": "",
+      "expiry_minutes": 60,
+      "files": {
+        "events/phone-a3f2c1d0/2026-08.jsonl": [
+          {
+            "ev": "suppressed",
+            "t": "2026-08-20T15:00:00Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "reason": "quiet_zone"
+          },
+          {
+            "ev": "expired",
+            "t": "2026-08-20T16:00:00Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "config_v": 1
+          }
+        ]
+      },
+      "expected": {
+        "sample": "thoughts|2026-08-20T15:00:00Z",
+        "stream": "thoughts",
+        "scheduled_utc": "2026-08-20T15:00:00Z",
+        "status": "expired",
+        "prior_status": null,
+        "observed": false,
+        "test": false,
+        "snoozes": 0,
+        "fired_on": [],
+        "answered_on": null,
+        "answered_at": null,
+        "latency_s": null,
+        "late": false,
+        "partial": false,
+        "survey_id": null,
+        "survey_version": null,
+        "answers": {},
+        "loc": null,
+        "suppressed_reason": "quiet_zone",
+        "duplicate_answers": 0,
+        "config_version": 1
+      },
+      "expected_warning_count": 0
+    },
+    {
+      "name": "precedence_suppressed_over_unobserved",
+      "note": "[H] suppressed is the more informed claim and outranks unobserved",
+      "expiry_minutes": 60,
+      "files": {
+        "events/laptop-9c11aa00/2026-08.jsonl": [
+          {
+            "ev": "unobserved",
+            "t": "2026-08-21T09:00:00Z",
+            "dev": "laptop-9c11aa00",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "config_v": 1
+          }
+        ],
+        "events/phone-a3f2c1d0/2026-08.jsonl": [
+          {
+            "ev": "suppressed",
+            "t": "2026-08-20T15:00:00Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "reason": "quiet_mode"
+          }
+        ]
+      },
+      "expected": {
+        "sample": "thoughts|2026-08-20T15:00:00Z",
+        "stream": "thoughts",
+        "scheduled_utc": "2026-08-20T15:00:00Z",
+        "status": "suppressed",
+        "prior_status": null,
+        "observed": false,
+        "test": false,
+        "snoozes": 0,
+        "fired_on": [],
+        "answered_on": null,
+        "answered_at": null,
+        "latency_s": null,
+        "late": false,
+        "partial": false,
+        "survey_id": null,
+        "survey_version": null,
+        "answers": {},
+        "loc": null,
+        "suppressed_reason": "quiet_mode",
+        "duplicate_answers": 0,
+        "config_version": 1
+      },
+      "expected_warning_count": 0
+    },
+    {
+      "name": "precedence_unobserved_over_pending",
+      "note": "unobserved outranks bare fired (pending is not a logged status)",
+      "expiry_minutes": 60,
+      "files": {
+        "events/phone-a3f2c1d0/2026-08.jsonl": [
+          {
+            "ev": "fired",
+            "t": "2026-08-20T15:00:02Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "config_v": 1,
+            "scheduled": "2026-08-20T15:00:00Z",
+            "test": false
+          }
+        ],
+        "events/laptop-9c11aa00/2026-08.jsonl": [
+          {
+            "ev": "unobserved",
+            "t": "2026-08-21T09:00:00Z",
+            "dev": "laptop-9c11aa00",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "config_v": 1
+          }
+        ]
+      },
+      "expected": {
+        "sample": "thoughts|2026-08-20T15:00:00Z",
+        "stream": "thoughts",
+        "scheduled_utc": "2026-08-20T15:00:00Z",
+        "status": "unobserved",
+        "prior_status": null,
+        "observed": true,
+        "test": false,
+        "snoozes": 0,
+        "fired_on": [
+          "phone-a3f2c1d0"
+        ],
+        "answered_on": null,
+        "answered_at": null,
+        "latency_s": null,
+        "late": false,
+        "partial": false,
+        "survey_id": null,
+        "survey_version": null,
+        "answers": {},
+        "loc": null,
+        "suppressed_reason": null,
+        "duplicate_answers": 0,
+        "config_version": 1
+      },
+      "expected_warning_count": 0
+    },
+    {
+      "name": "pending_only_fired",
+      "note": "",
+      "expiry_minutes": 60,
+      "files": {
+        "events/phone-a3f2c1d0/2026-08.jsonl": [
+          {
+            "ev": "fired",
+            "t": "2026-08-20T15:00:02Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "config_v": 1,
+            "scheduled": "2026-08-20T15:00:00Z",
+            "test": false
+          },
+          {
+            "ev": "snoozed",
+            "t": "2026-08-20T15:05:00Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "n": 1,
+            "until": "2026-08-20T15:15:00Z"
+          }
+        ]
+      },
+      "expected": {
+        "sample": "thoughts|2026-08-20T15:00:00Z",
+        "stream": "thoughts",
+        "scheduled_utc": "2026-08-20T15:00:00Z",
+        "status": "pending",
+        "prior_status": null,
+        "observed": true,
+        "test": false,
+        "snoozes": 1,
+        "fired_on": [
+          "phone-a3f2c1d0"
+        ],
+        "answered_on": null,
+        "answered_at": null,
+        "latency_s": null,
+        "late": false,
+        "partial": false,
+        "survey_id": null,
+        "survey_version": null,
+        "answers": {},
+        "loc": null,
+        "suppressed_reason": null,
+        "duplicate_answers": 0,
+        "config_version": 1
+      },
+      "expected_warning_count": 0
+    },
+    {
+      "name": "dedup_restore_duplicates",
+      "note": "[H] exact duplicates from a restore collapse: snoozes=1, one answer chain",
+      "expiry_minutes": 60,
+      "files": {
+        "events/phone-a3f2c1d0/2026-08.jsonl": [
+          {
+            "ev": "fired",
+            "t": "2026-08-20T15:00:02Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "config_v": 1,
+            "scheduled": "2026-08-20T15:00:00Z",
+            "test": false
+          },
+          {
+            "ev": "snoozed",
+            "t": "2026-08-20T15:05:00Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "n": 1,
+            "until": "2026-08-20T15:15:00Z"
+          },
+          {
+            "ev": "answered",
+            "t": "2026-08-20T15:20:00Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "survey": {
+              "id": "s",
+              "version": 1
+            },
+            "answers": {
+              "tags": [
+                "work"
+              ]
+            }
+          }
+        ],
+        "restored/laptop-9c11aa00/phone-a3f2c1d0/2026-08.jsonl": [
+          {
+            "ev": "fired",
+            "t": "2026-08-20T15:00:02Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "config_v": 1,
+            "scheduled": "2026-08-20T15:00:00Z",
+            "test": false
+          },
+          {
+            "ev": "snoozed",
+            "t": "2026-08-20T15:05:00Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "n": 1,
+            "until": "2026-08-20T15:15:00Z"
+          },
+          {
+            "ev": "answered",
+            "t": "2026-08-20T15:20:00Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "survey": {
+              "id": "s",
+              "version": 1
+            },
+            "answers": {
+              "tags": [
+                "work"
+              ]
+            }
+          }
+        ]
+      },
+      "expected": {
+        "sample": "thoughts|2026-08-20T15:00:00Z",
+        "stream": "thoughts",
+        "scheduled_utc": "2026-08-20T15:00:00Z",
+        "status": "answered",
+        "prior_status": null,
+        "observed": true,
+        "test": false,
+        "snoozes": 1,
+        "fired_on": [
+          "phone-a3f2c1d0"
+        ],
+        "answered_on": "phone-a3f2c1d0",
+        "answered_at": "2026-08-20T15:20:00Z",
+        "latency_s": 1200,
+        "late": false,
+        "partial": false,
+        "survey_id": "s",
+        "survey_version": 1,
+        "answers": {
+          "tags": [
+            "work"
+          ]
+        },
+        "loc": null,
+        "suppressed_reason": null,
+        "duplicate_answers": 0,
+        "config_version": 1
+      },
+      "expected_warning_count": 0
+    },
+    {
+      "name": "dedup_same_key_different_payload",
+      "note": "[H] same identity key, different payload: first by file-path order (events/** sorts before restored/**) kept, warning recorded",
+      "expiry_minutes": 60,
+      "files": {
+        "events/phone-a3f2c1d0/2026-08.jsonl": [
+          {
+            "ev": "answered",
+            "t": "2026-08-20T15:20:00Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "survey": {
+              "id": "s",
+              "version": 1
+            },
+            "answers": {
+              "tags": [
+                "work"
+              ]
+            }
+          }
+        ],
+        "restored/laptop-9c11aa00/phone-a3f2c1d0/2026-08.jsonl": [
+          {
+            "ev": "answered",
+            "t": "2026-08-20T15:20:00Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "survey": {
+              "id": "s",
+              "version": 1
+            },
+            "answers": {
+              "tags": [
+                "play"
+              ]
+            }
+          }
+        ]
+      },
+      "expected": {
+        "sample": "thoughts|2026-08-20T15:00:00Z",
+        "stream": "thoughts",
+        "scheduled_utc": "2026-08-20T15:00:00Z",
+        "status": "answered",
+        "prior_status": null,
+        "observed": false,
+        "test": false,
+        "snoozes": 0,
+        "fired_on": [],
+        "answered_on": "phone-a3f2c1d0",
+        "answered_at": "2026-08-20T15:20:00Z",
+        "latency_s": 1200,
+        "late": false,
+        "partial": false,
+        "survey_id": "s",
+        "survey_version": 1,
+        "answers": {
+          "tags": [
+            "work"
+          ]
+        },
+        "loc": null,
+        "suppressed_reason": null,
+        "duplicate_answers": 0,
+        "config_version": null
+      },
+      "expected_warning_count": 1
+    },
+    {
+      "name": "snooze_phone_answer_laptop",
+      "note": "[H] one sample: snoozes=1, answered_on=laptop, latency from original scheduled time",
+      "expiry_minutes": 60,
+      "files": {
+        "events/phone-a3f2c1d0/2026-08.jsonl": [
+          {
+            "ev": "fired",
+            "t": "2026-08-20T15:00:02Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "config_v": 1,
+            "scheduled": "2026-08-20T15:00:00Z",
+            "test": false
+          },
+          {
+            "ev": "snoozed",
+            "t": "2026-08-20T15:05:00Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "n": 1,
+            "until": "2026-08-20T15:15:00Z"
+          }
+        ],
+        "events/laptop-9c11aa00/2026-08.jsonl": [
+          {
+            "ev": "fired",
+            "t": "2026-08-20T15:00:03Z",
+            "dev": "laptop-9c11aa00",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "config_v": 1,
+            "scheduled": "2026-08-20T15:00:00Z"
+          },
+          {
+            "ev": "answered",
+            "t": "2026-08-20T15:12:00Z",
+            "dev": "laptop-9c11aa00",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "survey": {
+              "id": "s",
+              "version": 1
+            },
+            "answers": {
+              "tags": [
+                "work"
+              ]
+            }
+          }
+        ]
+      },
+      "expected": {
+        "sample": "thoughts|2026-08-20T15:00:00Z",
+        "stream": "thoughts",
+        "scheduled_utc": "2026-08-20T15:00:00Z",
+        "status": "answered",
+        "prior_status": null,
+        "observed": true,
+        "test": false,
+        "snoozes": 1,
+        "fired_on": [
+          "laptop-9c11aa00",
+          "phone-a3f2c1d0"
+        ],
+        "answered_on": "laptop-9c11aa00",
+        "answered_at": "2026-08-20T15:12:00Z",
+        "latency_s": 720,
+        "late": false,
+        "partial": false,
+        "survey_id": "s",
+        "survey_version": 1,
+        "answers": {
+          "tags": [
+            "work"
+          ]
+        },
+        "loc": null,
+        "suppressed_reason": null,
+        "duplicate_answers": 0,
+        "config_version": 1
+      },
+      "expected_warning_count": 0
+    },
+    {
+      "name": "duplicate_answers_two_devices",
+      "note": "[H] earliest-root chain wins; the other chain is retained as duplicate",
+      "expiry_minutes": 60,
+      "files": {
+        "events/phone-a3f2c1d0/2026-08.jsonl": [
+          {
+            "ev": "fired",
+            "t": "2026-08-20T15:00:02Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "config_v": 1,
+            "scheduled": "2026-08-20T15:00:00Z",
+            "test": false
+          },
+          {
+            "ev": "answered",
+            "t": "2026-08-20T15:03:00Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "survey": {
+              "id": "s",
+              "version": 1
+            },
+            "answers": {
+              "tags": [
+                "first"
+              ]
+            }
+          }
+        ],
+        "events/laptop-9c11aa00/2026-08.jsonl": [
+          {
+            "ev": "answered",
+            "t": "2026-08-20T15:04:00Z",
+            "dev": "laptop-9c11aa00",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "survey": {
+              "id": "s",
+              "version": 1
+            },
+            "answers": {
+              "tags": [
+                "second"
+              ]
+            }
+          }
+        ]
+      },
+      "expected": {
+        "sample": "thoughts|2026-08-20T15:00:00Z",
+        "stream": "thoughts",
+        "scheduled_utc": "2026-08-20T15:00:00Z",
+        "status": "answered",
+        "prior_status": null,
+        "observed": true,
+        "test": false,
+        "snoozes": 0,
+        "fired_on": [
+          "phone-a3f2c1d0"
+        ],
+        "answered_on": "phone-a3f2c1d0",
+        "answered_at": "2026-08-20T15:03:00Z",
+        "latency_s": 180,
+        "late": false,
+        "partial": false,
+        "survey_id": "s",
+        "survey_version": 1,
+        "answers": {
+          "tags": [
+            "first"
+          ]
+        },
+        "loc": null,
+        "suppressed_reason": null,
+        "duplicate_answers": 1,
+        "config_version": 1
+      },
+      "expected_warning_count": 0
+    },
+    {
+      "name": "supersedes_chain_cross_device",
+      "note": "[H] latest in chain effective, even when the edit came from another device",
+      "expiry_minutes": 60,
+      "files": {
+        "events/phone-a3f2c1d0/2026-08.jsonl": [
+          {
+            "ev": "fired",
+            "t": "2026-08-20T15:00:02Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "config_v": 1,
+            "scheduled": "2026-08-20T15:00:00Z",
+            "test": false
+          },
+          {
+            "ev": "answered",
+            "t": "2026-08-20T15:03:00Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "survey": {
+              "id": "s",
+              "version": 1
+            },
+            "answers": {
+              "tags": [
+                "v1"
+              ]
+            }
+          },
+          {
+            "ev": "answered",
+            "t": "2026-08-20T15:10:00Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "survey": {
+              "id": "s",
+              "version": 1
+            },
+            "answers": {
+              "tags": [
+                "v2"
+              ]
+            },
+            "supersedes": "2026-08-20T15:03:00Z"
+          }
+        ],
+        "events/laptop-9c11aa00/2026-08.jsonl": [
+          {
+            "ev": "answered",
+            "t": "2026-08-20T18:00:00Z",
+            "dev": "laptop-9c11aa00",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "survey": {
+              "id": "s",
+              "version": 1
+            },
+            "answers": {
+              "tags": [
+                "v3"
+              ]
+            },
+            "supersedes": "2026-08-20T15:10:00Z"
+          }
+        ]
+      },
+      "expected": {
+        "sample": "thoughts|2026-08-20T15:00:00Z",
+        "stream": "thoughts",
+        "scheduled_utc": "2026-08-20T15:00:00Z",
+        "status": "answered",
+        "prior_status": null,
+        "observed": true,
+        "test": false,
+        "snoozes": 0,
+        "fired_on": [
+          "phone-a3f2c1d0"
+        ],
+        "answered_on": "laptop-9c11aa00",
+        "answered_at": "2026-08-20T15:03:00Z",
+        "latency_s": 180,
+        "late": false,
+        "partial": false,
+        "survey_id": "s",
+        "survey_version": 1,
+        "answers": {
+          "tags": [
+            "v3"
+          ]
+        },
+        "loc": null,
+        "suppressed_reason": null,
+        "duplicate_answers": 0,
+        "config_version": 1
+      },
+      "expected_warning_count": 0
+    },
+    {
+      "name": "retract_pending",
+      "note": "retraction of an unanswered sample: prior_status=pending",
+      "expiry_minutes": 60,
+      "files": {
+        "events/phone-a3f2c1d0/2026-08.jsonl": [
+          {
+            "ev": "fired",
+            "t": "2026-08-20T15:00:02Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "config_v": 1,
+            "scheduled": "2026-08-20T15:00:00Z",
+            "test": false
+          },
+          {
+            "ev": "retracted",
+            "t": "2026-08-20T16:00:00Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "note": "mistake"
+          }
+        ]
+      },
+      "expected": {
+        "sample": "thoughts|2026-08-20T15:00:00Z",
+        "stream": "thoughts",
+        "scheduled_utc": "2026-08-20T15:00:00Z",
+        "status": "retracted",
+        "prior_status": "pending",
+        "observed": true,
+        "test": false,
+        "snoozes": 0,
+        "fired_on": [
+          "phone-a3f2c1d0"
+        ],
+        "answered_on": null,
+        "answered_at": null,
+        "latency_s": null,
+        "late": false,
+        "partial": false,
+        "survey_id": null,
+        "survey_version": null,
+        "answers": {},
+        "loc": null,
+        "suppressed_reason": null,
+        "duplicate_answers": 0,
+        "config_version": 1
+      },
+      "expected_warning_count": 0
+    },
+    {
+      "name": "retroactive_expiry",
+      "note": "[H] fired + unobserved + later expired folds to expired (\u00a78.4 step 3)",
+      "expiry_minutes": 60,
+      "files": {
+        "events/phone-a3f2c1d0/2026-08.jsonl": [
+          {
+            "ev": "fired",
+            "t": "2026-08-20T15:00:02Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "config_v": 1,
+            "scheduled": "2026-08-20T15:00:00Z",
+            "test": false
+          }
+        ],
+        "events/laptop-9c11aa00/2026-08.jsonl": [
+          {
+            "ev": "unobserved",
+            "t": "2026-08-21T09:00:00Z",
+            "dev": "laptop-9c11aa00",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "config_v": 1
+          },
+          {
+            "ev": "expired",
+            "t": "2026-08-21T09:00:00Z",
+            "dev": "laptop-9c11aa00",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "config_v": 1
+          }
+        ]
+      },
+      "expected": {
+        "sample": "thoughts|2026-08-20T15:00:00Z",
+        "stream": "thoughts",
+        "scheduled_utc": "2026-08-20T15:00:00Z",
+        "status": "expired",
+        "prior_status": null,
+        "observed": true,
+        "test": false,
+        "snoozes": 0,
+        "fired_on": [
+          "phone-a3f2c1d0"
+        ],
+        "answered_on": null,
+        "answered_at": null,
+        "latency_s": null,
+        "late": false,
+        "partial": false,
+        "survey_id": null,
+        "survey_version": null,
+        "answers": {},
+        "loc": null,
+        "suppressed_reason": null,
+        "duplicate_answers": 0,
+        "config_version": 1
+      },
+      "expected_warning_count": 0
+    },
+    {
+      "name": "late_boundary_exact",
+      "note": "latency == expiry -> late=false (strictly greater required)",
+      "expiry_minutes": 30,
+      "files": {
+        "events/phone-a3f2c1d0/2026-08.jsonl": [
+          {
+            "ev": "fired",
+            "t": "2026-08-20T15:00:02Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "config_v": 1,
+            "scheduled": "2026-08-20T15:00:00Z",
+            "test": false
+          },
+          {
+            "ev": "answered",
+            "t": "2026-08-20T15:30:00Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "survey": {
+              "id": "s",
+              "version": 1
+            },
+            "answers": {
+              "tags": [
+                "work"
+              ]
+            }
+          }
+        ]
+      },
+      "expected": {
+        "sample": "thoughts|2026-08-20T15:00:00Z",
+        "stream": "thoughts",
+        "scheduled_utc": "2026-08-20T15:00:00Z",
+        "status": "answered",
+        "prior_status": null,
+        "observed": true,
+        "test": false,
+        "snoozes": 0,
+        "fired_on": [
+          "phone-a3f2c1d0"
+        ],
+        "answered_on": "phone-a3f2c1d0",
+        "answered_at": "2026-08-20T15:30:00Z",
+        "latency_s": 1800,
+        "late": false,
+        "partial": false,
+        "survey_id": "s",
+        "survey_version": 1,
+        "answers": {
+          "tags": [
+            "work"
+          ]
+        },
+        "loc": null,
+        "suppressed_reason": null,
+        "duplicate_answers": 0,
+        "config_version": 1
+      },
+      "expected_warning_count": 0
+    },
+    {
+      "name": "late_one_second_past",
+      "note": "",
+      "expiry_minutes": 30,
+      "files": {
+        "events/phone-a3f2c1d0/2026-08.jsonl": [
+          {
+            "ev": "fired",
+            "t": "2026-08-20T15:00:02Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "config_v": 1,
+            "scheduled": "2026-08-20T15:00:00Z",
+            "test": false
+          },
+          {
+            "ev": "answered",
+            "t": "2026-08-20T15:30:01Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "survey": {
+              "id": "s",
+              "version": 1
+            },
+            "answers": {
+              "tags": [
+                "work"
+              ]
+            }
+          }
+        ]
+      },
+      "expected": {
+        "sample": "thoughts|2026-08-20T15:00:00Z",
+        "stream": "thoughts",
+        "scheduled_utc": "2026-08-20T15:00:00Z",
+        "status": "answered",
+        "prior_status": null,
+        "observed": true,
+        "test": false,
+        "snoozes": 0,
+        "fired_on": [
+          "phone-a3f2c1d0"
+        ],
+        "answered_on": "phone-a3f2c1d0",
+        "answered_at": "2026-08-20T15:30:01Z",
+        "latency_s": 1801,
+        "late": true,
+        "partial": false,
+        "survey_id": "s",
+        "survey_version": 1,
+        "answers": {
+          "tags": [
+            "work"
+          ]
+        },
+        "loc": null,
+        "suppressed_reason": null,
+        "duplicate_answers": 0,
+        "config_version": 1
+      },
+      "expected_warning_count": 0
+    },
+    {
+      "name": "partial_inline_answer_and_test",
+      "note": "partial = winning answer's flag; test = any fired.test",
+      "expiry_minutes": 60,
+      "files": {
+        "events/phone-a3f2c1d0/2026-08.jsonl": [
+          {
+            "ev": "fired",
+            "t": "2026-08-20T15:00:02Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "config_v": 1,
+            "scheduled": "2026-08-20T15:00:00Z",
+            "test": true
+          },
+          {
+            "ev": "answered",
+            "t": "2026-08-20T15:01:00Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "survey": {
+              "id": "s",
+              "version": 1
+            },
+            "answers": {
+              "tags": [
+                "quick"
+              ]
+            },
+            "partial": true
+          }
+        ]
+      },
+      "expected": {
+        "sample": "thoughts|2026-08-20T15:00:00Z",
+        "stream": "thoughts",
+        "scheduled_utc": "2026-08-20T15:00:00Z",
+        "status": "answered",
+        "prior_status": null,
+        "observed": true,
+        "test": true,
+        "snoozes": 0,
+        "fired_on": [
+          "phone-a3f2c1d0"
+        ],
+        "answered_on": "phone-a3f2c1d0",
+        "answered_at": "2026-08-20T15:01:00Z",
+        "latency_s": 60,
+        "late": false,
+        "partial": true,
+        "survey_id": "s",
+        "survey_version": 1,
+        "answers": {
+          "tags": [
+            "quick"
+          ]
+        },
+        "loc": null,
+        "suppressed_reason": null,
+        "duplicate_answers": 0,
+        "config_version": 1
+      },
+      "expected_warning_count": 0
+    },
+    {
+      "name": "stale_config_answer_survives",
+      "note": "answered outranks suppressed(stale_config); no answer is lost",
+      "expiry_minutes": 60,
+      "files": {
+        "events/phone-a3f2c1d0/2026-08.jsonl": [
+          {
+            "ev": "fired",
+            "t": "2026-08-20T15:00:02Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "config_v": 1,
+            "scheduled": "2026-08-20T15:00:00Z",
+            "test": false
+          },
+          {
+            "ev": "answered",
+            "t": "2026-08-20T15:02:00Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "survey": {
+              "id": "s",
+              "version": 1
+            },
+            "answers": {
+              "tags": [
+                "work"
+              ]
+            }
+          },
+          {
+            "ev": "suppressed",
+            "t": "2026-08-20T18:00:00Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "reason": "stale_config"
+          }
+        ]
+      },
+      "expected": {
+        "sample": "thoughts|2026-08-20T15:00:00Z",
+        "stream": "thoughts",
+        "scheduled_utc": "2026-08-20T15:00:00Z",
+        "status": "answered",
+        "prior_status": null,
+        "observed": true,
+        "test": false,
+        "snoozes": 0,
+        "fired_on": [
+          "phone-a3f2c1d0"
+        ],
+        "answered_on": "phone-a3f2c1d0",
+        "answered_at": "2026-08-20T15:02:00Z",
+        "latency_s": 120,
+        "late": false,
+        "partial": false,
+        "survey_id": "s",
+        "survey_version": 1,
+        "answers": {
+          "tags": [
+            "work"
+          ]
+        },
+        "loc": null,
+        "suppressed_reason": "stale_config",
+        "duplicate_answers": 0,
+        "config_version": 1
+      },
+      "expected_warning_count": 0
+    }
+  ]
+}

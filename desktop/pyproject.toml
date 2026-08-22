@@ -1,0 +1,20 @@
+[project]
+name = "pes"
+version = "0.1.0"
+description = "Personal Experience Sampler — desktop client and shared core"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest", "hypothesis"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["pes*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,227 @@
+{
+  "ln": [
+    {
+      "x_bits": "0x0000000000000001",
+      "ln_bits": "0xc0874385446d71c3"
+    },
+    {
+      "x_bits": "0x0010000000000000",
+      "ln_bits": "0xc086232bdd7abcd2"
+    },
+    {
+      "x_bits": "0x3fefffffffffffff",
+      "ln_bits": "0xbca0000000000000"
+    },
+    {
+      "x_bits": "0x3ff0000000000001",
+      "ln_bits": "0x3cafffffffffffff"
+    },
+    {
+      "x_bits": "0x3fe0000000000000",
+      "ln_bits": "0xbfe62e42fefa39ef"
+    },
+    {
+      "x_bits": "0x4000000000000000",
+      "ln_bits": "0x3fe62e42fefa39ef"
+    },
+    {
+      "x_bits": "0x4005bf0a8b145769",
+      "ln_bits": "0x3ff0000000000000"
+    },
+    {
+      "x_bits": "0x4024000000000000",
+      "ln_bits": "0x40026bb1bbb55516"
+    },
+    {
+      "x_bits": "0x7e37e43c8800759c",
+      "ln_bits": "0x4085963447f87fb5"
+    },
+    {
+      "x_bits": "0x3fe69203e62d5840",
+      "ln_bits": "0xbfd6579e6cfbb672"
+    },
+    {
+      "x_bits": "0x3fcf1068ba20803c",
+      "ln_bits": "0xbff6a7d80a50e586"
+    },
+    {
+      "x_bits": "0x3fc906ecb8a26964",
+      "ln_bits": "0xbffa1cf89eeed54f"
+    },
+    {
+      "x_bits": "0x3fd96e0edd4b88f0",
+      "ln_bits": "0xbfed88dcda621b7a"
+    },
+    {
+      "x_bits": "0x3fe9964879c1c970",
+      "ln_bits": "0xbfcca08e79f4c8cf"
+    },
+    {
+      "x_bits": "0x3fe600ee976a1dde",
+      "ln_bits": "0xbfd7f84434f9917c"
+    },
+    {
+      "x_bits": "0x3fd88ae0509b0c44",
+      "ln_bits": "0xbfeeabd8be5ade5c"
+    },
+    {
+      "x_bits": "0x3feaa899249989e8",
+      "ln_bits": "0xbfc7603e2b35e1c8"
+    },
+    {
+      "x_bits": "0x3fee842df84704dd",
+      "ln_bits": "0xbfa84e856ce4325a"
+    },
+    {
+      "x_bits": "0x3fa0ef945b272470",
+      "ln_bits": "0xc00b4568e8f6a8cc"
+    },
+    {
+      "x_bits": "0x3fe7cdc0bfc4fd6e",
+      "ln_bits": "0xbfd2efed1a9f619a"
+    },
+    {
+      "x_bits": "0x3fd08884a664ece0",
+      "ln_bits": "0xbff5a7f82201f2e7"
+    },
+    {
+      "x_bits": "0x3fd534f14bc8655a",
+      "ln_bits": "0xbff1ac4805d19d03"
+    },
+    {
+      "x_bits": "0x3fe2b0167139ba03",
+      "ln_bits": "0xbfe1362be4dbb69c"
+    },
+    {
+      "x_bits": "0x3fe0b7ce9e7608bb",
+      "ln_bits": "0xbfe4c6a834a0d178"
+    },
+    {
+      "x_bits": "0x3fcb929920d4c17c",
+      "ln_bits": "0xbff890341fa39996"
+    },
+    {
+      "x_bits": "0x3fe96b8e84b814c6",
+      "ln_bits": "0xbfcd76ff312b6580"
+    },
+    {
+      "x_bits": "0x3fe2563a7f28084d",
+      "ln_bits": "0xbfe1d1812da1c290"
+    },
+    {
+      "x_bits": "0x3fe28e8063300473",
+      "ln_bits": "0xbfe16fe2a34a7806"
+    },
+    {
+      "x_bits": "0x3fe540bc20428f5a",
+      "ln_bits": "0xbfda310d7491b6f0"
+    },
+    {
+      "x_bits": "0x3fc5829bf9c65390",
+      "ln_bits": "0xbffc893ad4c43a26"
+    },
+    {
+      "x_bits": "0x3fec4b4ec1859267",
+      "ln_bits": "0xbfbf822d96737016"
+    },
+    {
+      "x_bits": "0x3fe3c351de9eaf87",
+      "ln_bits": "0xbfded7e03c0e4cb4"
+    },
+    {
+      "x_bits": "0x3fc4c659d1c2442c",
+      "ln_bits": "0xbffd17b660b9122c"
+    },
+    {
+      "x_bits": "0x3fb9f9919e5dc9c8",
+      "ln_bits": "0xc0024debe5e77bd2"
+    },
+    {
+      "x_bits": "0x3fe3a67401814245",
+      "ln_bits": "0xbfdf359ff41d65f8"
+    },
+    {
+      "x_bits": "0x3feb2a7dc5f3c81c",
+      "ln_bits": "0xbfc4f66d940a665a"
+    },
+    {
+      "x_bits": "0x3fcc381c01a26f88",
+      "ln_bits": "0xbff83144c3af45b6"
+    },
+    {
+      "x_bits": "0x3fd9556afbb48d82",
+      "ln_bits": "0xbfeda7ed8057bf86"
+    },
+    {
+      "x_bits": "0x3fc2b5d6f9c9011c",
+      "ln_bits": "0xbffec46cf580a4c4"
+    },
+    {
+      "x_bits": "0x3fe4ca2288693d13",
+      "ln_bits": "0xbfdb9a265130a49e"
+    },
+    {
+      "x_bits": "0x3fe2c417e14dd024",
+      "ln_bits": "0xbfe113fc8514142c"
+    },
+    {
+      "x_bits": "0x3fc60f750243d354",
+      "ln_bits": "0xbffc21c7abf6356e"
+    },
+    {
+      "x_bits": "0x3fe1edf2283a2fb2",
+      "ln_bits": "0xbfe2898ad0b02b30"
+    },
+    {
+      "x_bits": "0x3fc4aaeb7b4d19ec",
+      "ln_bits": "0xbffd2ce4b8deece6"
+    },
+    {
+      "x_bits": "0x3fdb9e0daff3dc56",
+      "ln_bits": "0xbfeae4dc9194be58"
+    },
+    {
+      "x_bits": "0x3fd0ff014a2ce4a2",
+      "ln_bits": "0xbff536e13a2df81c"
+    },
+    {
+      "x_bits": "0x3fdb063666cbf4b2",
+      "ln_bits": "0xbfeb96b706ec1a0c"
+    },
+    {
+      "x_bits": "0x3fd5b4a9a7f456a4",
+      "ln_bits": "0xbff14d092594ce64"
+    },
+    {
+      "x_bits": "0x3fd9e69137ea5e80",
+      "ln_bits": "0xbfecf29aec5f2f26"
+    }
+  ],
+  "draws": [
+    {
+      "mean_seconds": 5400.0,
+      "u_bits": "0x0000000000000000",
+      "gap_seconds": 0
+    },
+    {
+      "mean_seconds": 5400.0,
+      "u_bits": "0x3fe0000000000000",
+      "gap_seconds": 3742
+    },
+    {
+      "mean_seconds": 5400.0,
+      "u_bits": "0x3fefffffffffffff",
+      "gap_seconds": 198378
+    },
+    {
+      "mean_seconds": 60.0,
+      "u_bits": "0x3fefff2e48e8a71e",
+      "gap_seconds": 552
+    },
+    {
+      "mean_seconds": 1000.0,
+      "u_bits": "0x3fe43a54e4e98864",
+      "gap_seconds": 1000
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+name: conformance
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pytest hypothesis
+      - run: python -m pytest desktop/tests -q
+      - name: Vectors are reproducible
+        run: |
+          python spec/tools/generate_vectors.py
+          git diff --exit-code spec/
+
+  kotlin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - run: cd android && ./gradlew :core:test --console=plain

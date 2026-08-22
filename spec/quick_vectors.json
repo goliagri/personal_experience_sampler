@@ -1,0 +1,154 @@
+{
+  "index_cases": [
+    {
+      "name": "n3_over_7",
+      "n": 3,
+      "count": 7,
+      "expected_full": [
+        true,
+        false,
+        false,
+        true,
+        false,
+        false,
+        true
+      ],
+      "note": "[H] index counts suppressed candidates too; i=0 always full"
+    },
+    {
+      "name": "n1_all_full",
+      "n": 1,
+      "count": 4,
+      "expected_full": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "fewer_than_n",
+      "n": 5,
+      "count": 3,
+      "expected_full": [
+        true,
+        false,
+        false
+      ],
+      "note": "a day with fewer than n pings still has exactly one full ping (i=0)"
+    },
+    {
+      "name": "mid_day_config_change",
+      "n": 2,
+      "count": 6,
+      "expected_full": [
+        true,
+        false,
+        true,
+        false,
+        true,
+        false
+      ],
+      "note": "[H] the index runs over the concatenated piecewise candidate list; the list itself comes from schedule_vectors (time-sorted resolved list)"
+    }
+  ],
+  "field_cases": [
+    {
+      "name": "no_quick_field_first_tags",
+      "survey": {
+        "id": "s",
+        "version": 1,
+        "title": "t",
+        "fields": [
+          {
+            "id": "mood",
+            "type": "number",
+            "label": "Mood",
+            "min": 1,
+            "max": 7,
+            "integer": true
+          },
+          {
+            "id": "tags",
+            "type": "tags",
+            "label": "Tags"
+          },
+          {
+            "id": "note",
+            "type": "text",
+            "label": "Note"
+          }
+        ]
+      },
+      "full": false,
+      "expected_field_ids": [
+        "tags"
+      ]
+    },
+    {
+      "name": "quick_fields",
+      "survey": {
+        "id": "s",
+        "version": 2,
+        "title": "t",
+        "fields": [
+          {
+            "id": "mood",
+            "type": "number",
+            "label": "Mood",
+            "quick": true
+          },
+          {
+            "id": "tags",
+            "type": "tags",
+            "label": "Tags",
+            "quick": true
+          },
+          {
+            "id": "note",
+            "type": "text",
+            "label": "Note"
+          }
+        ]
+      },
+      "full": false,
+      "expected_field_ids": [
+        "mood",
+        "tags"
+      ]
+    },
+    {
+      "name": "full_shows_all",
+      "survey": {
+        "id": "s",
+        "version": 2,
+        "title": "t",
+        "fields": [
+          {
+            "id": "mood",
+            "type": "number",
+            "label": "Mood",
+            "quick": true
+          },
+          {
+            "id": "tags",
+            "type": "tags",
+            "label": "Tags",
+            "quick": true
+          },
+          {
+            "id": "note",
+            "type": "text",
+            "label": "Note"
+          }
+        ]
+      },
+      "full": true,
+      "expected_field_ids": [
+        "mood",
+        "tags",
+        "note"
+      ]
+    }
+  ]
+}

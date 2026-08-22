@@ -1,0 +1,2842 @@
+{
+  "cases": [
+    {
+      "name": "poisson_plain_utc_day",
+      "note": "UTC timezone: local day == UTC day, no min gap",
+      "config_history": [
+        {
+          "version": 1,
+          "effective_from": "2026-01-01T00:00:00Z",
+          "timezone": "UTC",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "p",
+              "name": "p",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "poisson",
+                "mean_gap_minutes": 90
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        }
+      ],
+      "stream": "p",
+      "local_day": "2026-08-20",
+      "expected": [
+        {
+          "scheduled_utc": "2026-08-20T00:21:19Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 0
+        },
+        {
+          "scheduled_utc": "2026-08-20T04:31:14Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 1
+        },
+        {
+          "scheduled_utc": "2026-08-20T05:32:23Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 2
+        },
+        {
+          "scheduled_utc": "2026-08-20T05:52:58Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 3
+        },
+        {
+          "scheduled_utc": "2026-08-20T07:28:53Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 4
+        },
+        {
+          "scheduled_utc": "2026-08-20T07:30:49Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 5
+        },
+        {
+          "scheduled_utc": "2026-08-20T14:11:34Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 6
+        },
+        {
+          "scheduled_utc": "2026-08-20T15:43:56Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 7
+        },
+        {
+          "scheduled_utc": "2026-08-20T18:41:30Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 8
+        }
+      ]
+    },
+    {
+      "name": "poisson_min_gap_within_day",
+      "note": "[H] min gap shifts candidates to prev+min_gap within a UTC day",
+      "config_history": [
+        {
+          "version": 1,
+          "effective_from": "2026-01-01T00:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "p",
+              "name": "p",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "poisson",
+                "mean_gap_minutes": 90,
+                "min_gap_minutes": 15
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        }
+      ],
+      "stream": "p",
+      "local_day": "2026-08-20",
+      "expected": [
+        {
+          "scheduled_utc": "2026-08-20T07:28:53Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 0
+        },
+        {
+          "scheduled_utc": "2026-08-20T07:43:53Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 1
+        },
+        {
+          "scheduled_utc": "2026-08-20T14:24:38Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 2
+        },
+        {
+          "scheduled_utc": "2026-08-20T15:57:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 3
+        },
+        {
+          "scheduled_utc": "2026-08-20T18:54:34Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 4
+        },
+        {
+          "scheduled_utc": "2026-08-21T00:31:25Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 5
+        },
+        {
+          "scheduled_utc": "2026-08-21T02:38:51Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 6
+        },
+        {
+          "scheduled_utc": "2026-08-21T05:05:44Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 7
+        },
+        {
+          "scheduled_utc": "2026-08-21T06:28:47Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 8
+        },
+        {
+          "scheduled_utc": "2026-08-21T06:48:54Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 9
+        }
+      ]
+    },
+    {
+      "name": "poisson_min_gap_not_across_utc_midnight",
+      "note": "[H] pair closer than min_gap across 00:00Z is NOT shifted",
+      "config_history": [
+        {
+          "version": 1,
+          "effective_from": "2026-01-01T00:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "p",
+              "name": "p",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "poisson",
+                "mean_gap_minutes": 90,
+                "min_gap_minutes": 15
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        }
+      ],
+      "stream": "p",
+      "local_day": "2026-02-05",
+      "expected": [
+        {
+          "scheduled_utc": "2026-02-05T09:00:35Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 0
+        },
+        {
+          "scheduled_utc": "2026-02-05T09:15:35Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 1
+        },
+        {
+          "scheduled_utc": "2026-02-05T10:46:33Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 2
+        },
+        {
+          "scheduled_utc": "2026-02-05T13:05:05Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 3
+        },
+        {
+          "scheduled_utc": "2026-02-05T14:24:54Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 4
+        },
+        {
+          "scheduled_utc": "2026-02-05T17:13:37Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 5
+        },
+        {
+          "scheduled_utc": "2026-02-05T17:33:55Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 6
+        },
+        {
+          "scheduled_utc": "2026-02-05T19:06:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 7
+        },
+        {
+          "scheduled_utc": "2026-02-05T20:25:50Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 8
+        },
+        {
+          "scheduled_utc": "2026-02-05T21:18:13Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 9
+        },
+        {
+          "scheduled_utc": "2026-02-05T21:36:27Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 10
+        },
+        {
+          "scheduled_utc": "2026-02-05T23:54:50Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 11
+        },
+        {
+          "scheduled_utc": "2026-02-06T00:08:33Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 12
+        },
+        {
+          "scheduled_utc": "2026-02-06T02:37:53Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 13
+        },
+        {
+          "scheduled_utc": "2026-02-06T02:52:53Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 14
+        },
+        {
+          "scheduled_utc": "2026-02-06T03:44:18Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 15
+        },
+        {
+          "scheduled_utc": "2026-02-06T06:01:46Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 16
+        },
+        {
+          "scheduled_utc": "2026-02-06T06:47:50Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 17
+        }
+      ]
+    },
+    {
+      "name": "poisson_local_day_two_utc_days",
+      "note": "[H] LA local day spans two UTC days; both generated, filtered to bounds",
+      "config_history": [
+        {
+          "version": 1,
+          "effective_from": "2026-01-01T00:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "p",
+              "name": "p",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "poisson",
+                "mean_gap_minutes": 90,
+                "min_gap_minutes": 15
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        }
+      ],
+      "stream": "p",
+      "local_day": "2026-08-20",
+      "expected": [
+        {
+          "scheduled_utc": "2026-08-20T07:28:53Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 0
+        },
+        {
+          "scheduled_utc": "2026-08-20T07:43:53Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 1
+        },
+        {
+          "scheduled_utc": "2026-08-20T14:24:38Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 2
+        },
+        {
+          "scheduled_utc": "2026-08-20T15:57:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 3
+        },
+        {
+          "scheduled_utc": "2026-08-20T18:54:34Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 4
+        },
+        {
+          "scheduled_utc": "2026-08-21T00:31:25Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 5
+        },
+        {
+          "scheduled_utc": "2026-08-21T02:38:51Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 6
+        },
+        {
+          "scheduled_utc": "2026-08-21T05:05:44Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 7
+        },
+        {
+          "scheduled_utc": "2026-08-21T06:28:47Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 8
+        },
+        {
+          "scheduled_utc": "2026-08-21T06:48:54Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 9
+        }
+      ]
+    },
+    {
+      "name": "poisson_config_change_mid_day",
+      "note": "[H] piecewise: v1 before 22:00Z, v2 after",
+      "config_history": [
+        {
+          "version": 1,
+          "effective_from": "2026-01-01T00:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "p",
+              "name": "p",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "poisson",
+                "mean_gap_minutes": 90,
+                "min_gap_minutes": 15
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        },
+        {
+          "version": 2,
+          "effective_from": "2026-08-20T22:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "p",
+              "name": "p",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "poisson",
+                "mean_gap_minutes": 45,
+                "min_gap_minutes": 15
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        }
+      ],
+      "stream": "p",
+      "local_day": "2026-08-20",
+      "expected": [
+        {
+          "scheduled_utc": "2026-08-20T07:28:53Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 0
+        },
+        {
+          "scheduled_utc": "2026-08-20T07:43:53Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 1
+        },
+        {
+          "scheduled_utc": "2026-08-20T14:24:38Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 2
+        },
+        {
+          "scheduled_utc": "2026-08-20T15:57:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 3
+        },
+        {
+          "scheduled_utc": "2026-08-20T18:54:34Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 4
+        },
+        {
+          "scheduled_utc": "2026-08-20T22:05:39Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 5
+        },
+        {
+          "scheduled_utc": "2026-08-20T22:20:39Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 6
+        },
+        {
+          "scheduled_utc": "2026-08-21T00:15:42Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 7
+        },
+        {
+          "scheduled_utc": "2026-08-21T01:19:25Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 8
+        },
+        {
+          "scheduled_utc": "2026-08-21T02:32:51Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 9
+        },
+        {
+          "scheduled_utc": "2026-08-21T03:14:22Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 10
+        },
+        {
+          "scheduled_utc": "2026-08-21T03:29:22Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 11
+        },
+        {
+          "scheduled_utc": "2026-08-21T03:46:13Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 12
+        },
+        {
+          "scheduled_utc": "2026-08-21T04:29:20Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 13
+        },
+        {
+          "scheduled_utc": "2026-08-21T04:44:20Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 14
+        },
+        {
+          "scheduled_utc": "2026-08-21T04:59:20Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 15
+        }
+      ]
+    },
+    {
+      "name": "poisson_day_after_config_change",
+      "note": "[H] day D+1 fully under v2, identical to v2-only generation",
+      "config_history": [
+        {
+          "version": 1,
+          "effective_from": "2026-01-01T00:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "p",
+              "name": "p",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "poisson",
+                "mean_gap_minutes": 90,
+                "min_gap_minutes": 15
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        },
+        {
+          "version": 2,
+          "effective_from": "2026-08-20T22:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "p",
+              "name": "p",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "poisson",
+                "mean_gap_minutes": 45,
+                "min_gap_minutes": 15
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        }
+      ],
+      "stream": "p",
+      "local_day": "2026-08-21",
+      "expected": [
+        {
+          "scheduled_utc": "2026-08-21T07:32:44Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 0
+        },
+        {
+          "scheduled_utc": "2026-08-21T07:47:44Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 1
+        },
+        {
+          "scheduled_utc": "2026-08-21T08:48:38Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 2
+        },
+        {
+          "scheduled_utc": "2026-08-21T09:38:20Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 3
+        },
+        {
+          "scheduled_utc": "2026-08-21T10:02:32Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 4
+        },
+        {
+          "scheduled_utc": "2026-08-21T10:31:44Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 5
+        },
+        {
+          "scheduled_utc": "2026-08-21T11:40:49Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 6
+        },
+        {
+          "scheduled_utc": "2026-08-21T12:16:08Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 7
+        },
+        {
+          "scheduled_utc": "2026-08-21T12:41:13Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 8
+        },
+        {
+          "scheduled_utc": "2026-08-21T12:56:13Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 9
+        },
+        {
+          "scheduled_utc": "2026-08-21T13:11:13Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 10
+        },
+        {
+          "scheduled_utc": "2026-08-21T14:54:41Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 11
+        },
+        {
+          "scheduled_utc": "2026-08-21T15:25:44Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 12
+        },
+        {
+          "scheduled_utc": "2026-08-21T15:50:40Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 13
+        },
+        {
+          "scheduled_utc": "2026-08-21T16:12:05Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 14
+        },
+        {
+          "scheduled_utc": "2026-08-21T19:15:54Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 15
+        },
+        {
+          "scheduled_utc": "2026-08-21T21:01:33Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 16
+        },
+        {
+          "scheduled_utc": "2026-08-21T21:16:33Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 17
+        },
+        {
+          "scheduled_utc": "2026-08-21T22:07:51Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 18
+        },
+        {
+          "scheduled_utc": "2026-08-21T23:12:03Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 19
+        },
+        {
+          "scheduled_utc": "2026-08-21T23:27:03Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 20
+        },
+        {
+          "scheduled_utc": "2026-08-22T00:29:40Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 21
+        },
+        {
+          "scheduled_utc": "2026-08-22T00:50:41Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 22
+        },
+        {
+          "scheduled_utc": "2026-08-22T01:20:21Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 23
+        },
+        {
+          "scheduled_utc": "2026-08-22T01:35:21Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 24
+        },
+        {
+          "scheduled_utc": "2026-08-22T01:50:21Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 25
+        },
+        {
+          "scheduled_utc": "2026-08-22T03:14:07Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 26
+        },
+        {
+          "scheduled_utc": "2026-08-22T03:44:32Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 27
+        },
+        {
+          "scheduled_utc": "2026-08-22T04:01:22Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 28
+        },
+        {
+          "scheduled_utc": "2026-08-22T04:16:22Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 29
+        },
+        {
+          "scheduled_utc": "2026-08-22T04:59:45Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 30
+        },
+        {
+          "scheduled_utc": "2026-08-22T06:26:41Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 31
+        },
+        {
+          "scheduled_utc": "2026-08-22T06:41:41Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 32
+        },
+        {
+          "scheduled_utc": "2026-08-22T06:58:43Z",
+          "suppressed": null,
+          "config_v": 2,
+          "index": 33
+        }
+      ]
+    },
+    {
+      "name": "poisson_seed_edit",
+      "note": "same day, different stream seed -> different times",
+      "config_history": [
+        {
+          "version": 1,
+          "effective_from": "2026-01-01T00:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "p",
+              "name": "p",
+              "enabled": true,
+              "seed": "0123456789abcdef0123456789abcdef",
+              "protocol": {
+                "type": "poisson",
+                "mean_gap_minutes": 90,
+                "min_gap_minutes": 15
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        }
+      ],
+      "stream": "p",
+      "local_day": "2026-08-20",
+      "expected": [
+        {
+          "scheduled_utc": "2026-08-20T07:04:34Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 0
+        },
+        {
+          "scheduled_utc": "2026-08-20T11:46:10Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 1
+        },
+        {
+          "scheduled_utc": "2026-08-20T14:51:45Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 2
+        },
+        {
+          "scheduled_utc": "2026-08-20T19:09:25Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 3
+        },
+        {
+          "scheduled_utc": "2026-08-20T19:24:25Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 4
+        },
+        {
+          "scheduled_utc": "2026-08-20T20:34:53Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 5
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:51:56Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 6
+        },
+        {
+          "scheduled_utc": "2026-08-21T03:31:09Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 7
+        },
+        {
+          "scheduled_utc": "2026-08-21T03:46:09Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 8
+        },
+        {
+          "scheduled_utc": "2026-08-21T05:09:42Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 9
+        },
+        {
+          "scheduled_utc": "2026-08-21T05:24:42Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 10
+        },
+        {
+          "scheduled_utc": "2026-08-21T05:39:42Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 11
+        },
+        {
+          "scheduled_utc": "2026-08-21T05:58:51Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 12
+        }
+      ]
+    },
+    {
+      "name": "stratified_normal_day",
+      "note": "24 h day: 2 full 10 h intervals + 4 h partial -> floor(5*0.4)=2 pings",
+      "config_history": [
+        {
+          "version": 1,
+          "effective_from": "2026-01-01T00:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "s1",
+              "name": "s1",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "stratified",
+                "interval_minutes": 600,
+                "pings_per_interval": 5
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        }
+      ],
+      "stream": "s1",
+      "local_day": "2026-08-20",
+      "expected": [
+        {
+          "scheduled_utc": "2026-08-20T07:33:29Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 0
+        },
+        {
+          "scheduled_utc": "2026-08-20T07:45:29Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 1
+        },
+        {
+          "scheduled_utc": "2026-08-20T08:15:02Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 2
+        },
+        {
+          "scheduled_utc": "2026-08-20T08:42:16Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 3
+        },
+        {
+          "scheduled_utc": "2026-08-20T15:40:27Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 4
+        },
+        {
+          "scheduled_utc": "2026-08-20T18:08:24Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 5
+        },
+        {
+          "scheduled_utc": "2026-08-20T20:22:01Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 6
+        },
+        {
+          "scheduled_utc": "2026-08-20T22:52:08Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 7
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:28:07Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 8
+        },
+        {
+          "scheduled_utc": "2026-08-21T02:06:39Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 9
+        },
+        {
+          "scheduled_utc": "2026-08-21T04:08:48Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 10
+        },
+        {
+          "scheduled_utc": "2026-08-21T05:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 11
+        }
+      ]
+    },
+    {
+      "name": "stratified_23h_day",
+      "note": "[H] spring-forward 23 h day: 2 full intervals + 3 h partial -> floor(5*0.3)=1",
+      "config_history": [
+        {
+          "version": 1,
+          "effective_from": "2026-01-01T00:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "s1",
+              "name": "s1",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "stratified",
+                "interval_minutes": 600,
+                "pings_per_interval": 5
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        }
+      ],
+      "stream": "s1",
+      "local_day": "2026-03-08",
+      "expected": [
+        {
+          "scheduled_utc": "2026-03-08T12:38:36Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 0
+        },
+        {
+          "scheduled_utc": "2026-03-08T13:57:13Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 1
+        },
+        {
+          "scheduled_utc": "2026-03-08T15:26:01Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 2
+        },
+        {
+          "scheduled_utc": "2026-03-08T17:02:50Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 3
+        },
+        {
+          "scheduled_utc": "2026-03-08T17:33:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 4
+        },
+        {
+          "scheduled_utc": "2026-03-08T18:11:38Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 5
+        },
+        {
+          "scheduled_utc": "2026-03-09T00:25:45Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 6
+        },
+        {
+          "scheduled_utc": "2026-03-09T02:09:40Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 7
+        },
+        {
+          "scheduled_utc": "2026-03-09T03:13:56Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 8
+        },
+        {
+          "scheduled_utc": "2026-03-09T03:48:07Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 9
+        },
+        {
+          "scheduled_utc": "2026-03-09T06:16:23Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 10
+        }
+      ]
+    },
+    {
+      "name": "stratified_25h_day",
+      "note": "[H] fall-back 25 h day: 2 full intervals + 5 h partial -> floor(5*0.5)=2",
+      "config_history": [
+        {
+          "version": 1,
+          "effective_from": "2026-01-01T00:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "s1",
+              "name": "s1",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "stratified",
+                "interval_minutes": 600,
+                "pings_per_interval": 5
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        }
+      ],
+      "stream": "s1",
+      "local_day": "2026-11-01",
+      "expected": [
+        {
+          "scheduled_utc": "2026-11-01T08:11:30Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 0
+        },
+        {
+          "scheduled_utc": "2026-11-01T08:19:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 1
+        },
+        {
+          "scheduled_utc": "2026-11-01T08:27:33Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 2
+        },
+        {
+          "scheduled_utc": "2026-11-01T12:46:22Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 3
+        },
+        {
+          "scheduled_utc": "2026-11-01T13:26:09Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 4
+        },
+        {
+          "scheduled_utc": "2026-11-01T17:11:05Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 5
+        },
+        {
+          "scheduled_utc": "2026-11-01T17:52:11Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 6
+        },
+        {
+          "scheduled_utc": "2026-11-01T21:13:33Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 7
+        },
+        {
+          "scheduled_utc": "2026-11-01T23:12:25Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 8
+        },
+        {
+          "scheduled_utc": "2026-11-02T01:33:42Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 9
+        },
+        {
+          "scheduled_utc": "2026-11-02T03:36:23Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 10
+        },
+        {
+          "scheduled_utc": "2026-11-02T06:21:26Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 11
+        }
+      ]
+    },
+    {
+      "name": "fixed_interval_basic",
+      "note": "anchor 09:00 local, every 3 h until end of local day",
+      "config_history": [
+        {
+          "version": 1,
+          "effective_from": "2026-01-01T00:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "fi",
+              "name": "fi",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "fixed_interval",
+                "every_minutes": 180,
+                "anchor_local": "09:00"
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        }
+      ],
+      "stream": "fi",
+      "local_day": "2026-08-20",
+      "expected": [
+        {
+          "scheduled_utc": "2026-08-20T16:00:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 0
+        },
+        {
+          "scheduled_utc": "2026-08-20T19:00:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 1
+        },
+        {
+          "scheduled_utc": "2026-08-20T22:00:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 2
+        },
+        {
+          "scheduled_utc": "2026-08-21T01:00:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 3
+        },
+        {
+          "scheduled_utc": "2026-08-21T04:00:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 4
+        }
+      ]
+    },
+    {
+      "name": "fixed_interval_spring_forward_anchor",
+      "note": "[H] anchor 02:30 nonexistent -> pre-transition instant, suppressed(dst); later emissions clean",
+      "config_history": [
+        {
+          "version": 1,
+          "effective_from": "2026-01-01T00:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "fi",
+              "name": "fi",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "fixed_interval",
+                "every_minutes": 180,
+                "anchor_local": "02:30"
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        }
+      ],
+      "stream": "fi",
+      "local_day": "2026-03-08",
+      "expected": [
+        {
+          "scheduled_utc": "2026-03-08T10:30:00Z",
+          "suppressed": "dst",
+          "config_v": 1,
+          "index": 0
+        },
+        {
+          "scheduled_utc": "2026-03-08T13:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 1
+        },
+        {
+          "scheduled_utc": "2026-03-08T16:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 2
+        },
+        {
+          "scheduled_utc": "2026-03-08T19:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 3
+        },
+        {
+          "scheduled_utc": "2026-03-08T22:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 4
+        },
+        {
+          "scheduled_utc": "2026-03-09T01:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 5
+        },
+        {
+          "scheduled_utc": "2026-03-09T04:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 6
+        }
+      ]
+    },
+    {
+      "name": "fixed_interval_through_fall_back",
+      "note": "[H] hourly through the fall-back: UTC spacing stays 60 min, 25 emissions",
+      "config_history": [
+        {
+          "version": 1,
+          "effective_from": "2026-01-01T00:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "fi",
+              "name": "fi",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "fixed_interval",
+                "every_minutes": 60,
+                "anchor_local": "00:30"
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        }
+      ],
+      "stream": "fi",
+      "local_day": "2026-11-01",
+      "expected": [
+        {
+          "scheduled_utc": "2026-11-01T07:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 0
+        },
+        {
+          "scheduled_utc": "2026-11-01T08:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 1
+        },
+        {
+          "scheduled_utc": "2026-11-01T09:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 2
+        },
+        {
+          "scheduled_utc": "2026-11-01T10:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 3
+        },
+        {
+          "scheduled_utc": "2026-11-01T11:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 4
+        },
+        {
+          "scheduled_utc": "2026-11-01T12:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 5
+        },
+        {
+          "scheduled_utc": "2026-11-01T13:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 6
+        },
+        {
+          "scheduled_utc": "2026-11-01T14:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 7
+        },
+        {
+          "scheduled_utc": "2026-11-01T15:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 8
+        },
+        {
+          "scheduled_utc": "2026-11-01T16:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 9
+        },
+        {
+          "scheduled_utc": "2026-11-01T17:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 10
+        },
+        {
+          "scheduled_utc": "2026-11-01T18:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 11
+        },
+        {
+          "scheduled_utc": "2026-11-01T19:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 12
+        },
+        {
+          "scheduled_utc": "2026-11-01T20:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 13
+        },
+        {
+          "scheduled_utc": "2026-11-01T21:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 14
+        },
+        {
+          "scheduled_utc": "2026-11-01T22:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 15
+        },
+        {
+          "scheduled_utc": "2026-11-01T23:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 16
+        },
+        {
+          "scheduled_utc": "2026-11-02T00:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 17
+        },
+        {
+          "scheduled_utc": "2026-11-02T01:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 18
+        },
+        {
+          "scheduled_utc": "2026-11-02T02:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 19
+        },
+        {
+          "scheduled_utc": "2026-11-02T03:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 20
+        },
+        {
+          "scheduled_utc": "2026-11-02T04:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 21
+        },
+        {
+          "scheduled_utc": "2026-11-02T05:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 22
+        },
+        {
+          "scheduled_utc": "2026-11-02T06:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 23
+        },
+        {
+          "scheduled_utc": "2026-11-02T07:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 24
+        }
+      ]
+    },
+    {
+      "name": "fixed_times_basic_matching_day",
+      "note": "2026-08-19 is a Wednesday: all three times",
+      "config_history": [
+        {
+          "version": 1,
+          "effective_from": "2026-01-01T00:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "ft",
+              "name": "ft",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "fixed_times",
+                "times_local": [
+                  "08:00",
+                  "12:30",
+                  "20:00"
+                ],
+                "days": [
+                  "mon",
+                  "wed",
+                  "fri"
+                ]
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        }
+      ],
+      "stream": "ft",
+      "local_day": "2026-08-19",
+      "expected": [
+        {
+          "scheduled_utc": "2026-08-19T15:00:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 0
+        },
+        {
+          "scheduled_utc": "2026-08-19T19:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 1
+        },
+        {
+          "scheduled_utc": "2026-08-20T03:00:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 2
+        }
+      ]
+    },
+    {
+      "name": "fixed_times_nonmatching_day",
+      "note": "Thursday: empty",
+      "config_history": [
+        {
+          "version": 1,
+          "effective_from": "2026-01-01T00:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "ft",
+              "name": "ft",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "fixed_times",
+                "times_local": [
+                  "08:00",
+                  "12:30",
+                  "20:00"
+                ],
+                "days": [
+                  "mon",
+                  "wed",
+                  "fri"
+                ]
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        }
+      ],
+      "stream": "ft",
+      "local_day": "2026-08-20",
+      "expected": []
+    },
+    {
+      "name": "fixed_times_spring_forward",
+      "note": "[H] 02:30 nonexistent -> 10:30Z suppressed(dst)",
+      "config_history": [
+        {
+          "version": 1,
+          "effective_from": "2026-01-01T00:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "ft",
+              "name": "ft",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "fixed_times",
+                "times_local": [
+                  "02:30",
+                  "12:00"
+                ]
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        }
+      ],
+      "stream": "ft",
+      "local_day": "2026-03-08",
+      "expected": [
+        {
+          "scheduled_utc": "2026-03-08T10:30:00Z",
+          "suppressed": "dst",
+          "config_v": 1,
+          "index": 0
+        },
+        {
+          "scheduled_utc": "2026-03-08T19:00:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 1
+        }
+      ]
+    },
+    {
+      "name": "fixed_times_fall_back_first_occurrence",
+      "note": "[H] 01:30 duplicated -> first occurrence (PDT, 08:30Z)",
+      "config_history": [
+        {
+          "version": 1,
+          "effective_from": "2026-01-01T00:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "ft",
+              "name": "ft",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "fixed_times",
+                "times_local": [
+                  "01:30",
+                  "12:00"
+                ]
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        }
+      ],
+      "stream": "ft",
+      "local_day": "2026-11-01",
+      "expected": [
+        {
+          "scheduled_utc": "2026-11-01T08:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 0
+        },
+        {
+          "scheduled_utc": "2026-11-01T20:00:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 1
+        }
+      ]
+    },
+    {
+      "name": "collision_same_second",
+      "note": "[H] identical times shift +1 s in times_local order",
+      "config_history": [
+        {
+          "version": 1,
+          "effective_from": "2026-01-01T00:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "c",
+              "name": "c",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "fixed_times",
+                "times_local": [
+                  "12:00",
+                  "12:00",
+                  "12:00"
+                ]
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        }
+      ],
+      "stream": "c",
+      "local_day": "2026-08-20",
+      "expected": [
+        {
+          "scheduled_utc": "2026-08-20T19:00:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 0
+        },
+        {
+          "scheduled_utc": "2026-08-20T19:00:01Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 1
+        },
+        {
+          "scheduled_utc": "2026-08-20T19:00:02Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 2
+        }
+      ]
+    },
+    {
+      "name": "collision_dst_resolved_candidate",
+      "note": "[H] 02:30 (nonexistent, ->10:30Z) collides with real 03:30 PDT (10:30Z); later-in-order 03:30 shifts to 10:30:01Z",
+      "config_history": [
+        {
+          "version": 1,
+          "effective_from": "2026-01-01T00:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "c",
+              "name": "c",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "fixed_times",
+                "times_local": [
+                  "02:30",
+                  "03:30"
+                ]
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        }
+      ],
+      "stream": "c",
+      "local_day": "2026-03-08",
+      "expected": [
+        {
+          "scheduled_utc": "2026-03-08T10:30:00Z",
+          "suppressed": "dst",
+          "config_v": 1,
+          "index": 0
+        },
+        {
+          "scheduled_utc": "2026-03-08T10:30:01Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 1
+        }
+      ]
+    },
+    {
+      "name": "collision_shift_past_day_end",
+      "note": "[H] 61 collisions at 23:59: the last shifts to 00:00:00Z of the next day but remains assigned to the generating day",
+      "config_history": [
+        {
+          "version": 1,
+          "effective_from": "2026-01-01T00:00:00Z",
+          "timezone": "UTC",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "c",
+              "name": "c",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "fixed_times",
+                "times_local": [
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59",
+                  "23:59"
+                ]
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        }
+      ],
+      "stream": "c",
+      "local_day": "2026-08-20",
+      "expected": [
+        {
+          "scheduled_utc": "2026-08-20T23:59:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 0
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:01Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 1
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:02Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 2
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:03Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 3
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:04Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 4
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:05Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 5
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:06Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 6
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:07Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 7
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:08Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 8
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:09Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 9
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:10Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 10
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:11Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 11
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:12Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 12
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:13Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 13
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:14Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 14
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:15Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 15
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:16Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 16
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:17Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 17
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:18Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 18
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:19Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 19
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:20Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 20
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:21Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 21
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:22Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 22
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:23Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 23
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:24Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 24
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:25Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 25
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:26Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 26
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:27Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 27
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:28Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 28
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:29Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 29
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:30Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 30
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:31Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 31
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:32Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 32
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:33Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 33
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:34Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 34
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:35Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 35
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:36Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 36
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:37Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 37
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:38Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 38
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:39Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 39
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:40Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 40
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:41Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 41
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:42Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 42
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:43Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 43
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:44Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 44
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:45Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 45
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:46Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 46
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:47Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 47
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:48Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 48
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:49Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 49
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:50Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 50
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:51Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 51
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:52Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 52
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:53Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 53
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:54Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 54
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:55Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 55
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:56Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 56
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:57Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 57
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:58Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 58
+        },
+        {
+          "scheduled_utc": "2026-08-20T23:59:59Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 59
+        },
+        {
+          "scheduled_utc": "2026-08-21T00:00:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 60
+        }
+      ]
+    },
+    {
+      "name": "quiet_zone_plain_half_open",
+      "note": "window [13:00,15:00): 13:00 and 14:59 suppressed, 12:00 and 15:00 not; applies to fixed_times (suppressed, not skipped)",
+      "config_history": [
+        {
+          "version": 1,
+          "effective_from": "2026-01-01T00:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "q",
+              "name": "q",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "fixed_times",
+                "times_local": [
+                  "12:00",
+                  "13:00",
+                  "14:59",
+                  "15:00"
+                ]
+              },
+              "quiet_zones": [
+                {
+                  "days": [
+                    "mon",
+                    "tue",
+                    "wed",
+                    "thu",
+                    "fri",
+                    "sat",
+                    "sun"
+                  ],
+                  "from": "13:00",
+                  "to": "15:00"
+                }
+              ],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        }
+      ],
+      "stream": "q",
+      "local_day": "2026-08-20",
+      "expected": [
+        {
+          "scheduled_utc": "2026-08-20T19:00:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 0
+        },
+        {
+          "scheduled_utc": "2026-08-20T20:00:00Z",
+          "suppressed": "quiet_zone",
+          "config_v": 1,
+          "index": 1
+        },
+        {
+          "scheduled_utc": "2026-08-20T21:59:00Z",
+          "suppressed": "quiet_zone",
+          "config_v": 1,
+          "index": 2
+        },
+        {
+          "scheduled_utc": "2026-08-20T22:00:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 3
+        }
+      ]
+    },
+    {
+      "name": "quiet_zone_midnight_wrap",
+      "note": "window starts Thu 23:00, wraps to Fri 07:30: Fri 07:00 suppressed (tail of Thu window), Fri 22:59 not, Fri 23:30 not (Fri not listed)",
+      "config_history": [
+        {
+          "version": 1,
+          "effective_from": "2026-01-01T00:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "q",
+              "name": "q",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "fixed_times",
+                "times_local": [
+                  "07:00",
+                  "22:59",
+                  "23:30"
+                ]
+              },
+              "quiet_zones": [
+                {
+                  "days": [
+                    "thu"
+                  ],
+                  "from": "23:00",
+                  "to": "07:30"
+                }
+              ],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        }
+      ],
+      "stream": "q",
+      "local_day": "2026-08-21",
+      "expected": [
+        {
+          "scheduled_utc": "2026-08-21T14:00:00Z",
+          "suppressed": "quiet_zone",
+          "config_v": 1,
+          "index": 0
+        },
+        {
+          "scheduled_utc": "2026-08-22T05:59:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 1
+        },
+        {
+          "scheduled_utc": "2026-08-22T06:30:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 2
+        }
+      ]
+    },
+    {
+      "name": "quiet_zone_spanning_spring_forward",
+      "note": "quiet zone 23:00-07:30 across the transition is an hour shorter in elapsed time; evaluated on wall clock",
+      "config_history": [
+        {
+          "version": 1,
+          "effective_from": "2026-01-01T00:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "q",
+              "name": "q",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "fixed_interval",
+                "every_minutes": 60,
+                "anchor_local": "00:15"
+              },
+              "quiet_zones": [
+                {
+                  "days": [
+                    "mon",
+                    "tue",
+                    "wed",
+                    "thu",
+                    "fri",
+                    "sat",
+                    "sun"
+                  ],
+                  "from": "23:00",
+                  "to": "07:30"
+                }
+              ],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        }
+      ],
+      "stream": "q",
+      "local_day": "2026-03-08",
+      "expected": [
+        {
+          "scheduled_utc": "2026-03-08T08:15:00Z",
+          "suppressed": "quiet_zone",
+          "config_v": 1,
+          "index": 0
+        },
+        {
+          "scheduled_utc": "2026-03-08T09:15:00Z",
+          "suppressed": "quiet_zone",
+          "config_v": 1,
+          "index": 1
+        },
+        {
+          "scheduled_utc": "2026-03-08T10:15:00Z",
+          "suppressed": "quiet_zone",
+          "config_v": 1,
+          "index": 2
+        },
+        {
+          "scheduled_utc": "2026-03-08T11:15:00Z",
+          "suppressed": "quiet_zone",
+          "config_v": 1,
+          "index": 3
+        },
+        {
+          "scheduled_utc": "2026-03-08T12:15:00Z",
+          "suppressed": "quiet_zone",
+          "config_v": 1,
+          "index": 4
+        },
+        {
+          "scheduled_utc": "2026-03-08T13:15:00Z",
+          "suppressed": "quiet_zone",
+          "config_v": 1,
+          "index": 5
+        },
+        {
+          "scheduled_utc": "2026-03-08T14:15:00Z",
+          "suppressed": "quiet_zone",
+          "config_v": 1,
+          "index": 6
+        },
+        {
+          "scheduled_utc": "2026-03-08T15:15:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 7
+        },
+        {
+          "scheduled_utc": "2026-03-08T16:15:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 8
+        },
+        {
+          "scheduled_utc": "2026-03-08T17:15:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 9
+        },
+        {
+          "scheduled_utc": "2026-03-08T18:15:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 10
+        },
+        {
+          "scheduled_utc": "2026-03-08T19:15:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 11
+        },
+        {
+          "scheduled_utc": "2026-03-08T20:15:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 12
+        },
+        {
+          "scheduled_utc": "2026-03-08T21:15:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 13
+        },
+        {
+          "scheduled_utc": "2026-03-08T22:15:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 14
+        },
+        {
+          "scheduled_utc": "2026-03-08T23:15:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 15
+        },
+        {
+          "scheduled_utc": "2026-03-09T00:15:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 16
+        },
+        {
+          "scheduled_utc": "2026-03-09T01:15:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 17
+        },
+        {
+          "scheduled_utc": "2026-03-09T02:15:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 18
+        },
+        {
+          "scheduled_utc": "2026-03-09T03:15:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 19
+        },
+        {
+          "scheduled_utc": "2026-03-09T04:15:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 20
+        },
+        {
+          "scheduled_utc": "2026-03-09T05:15:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 21
+        },
+        {
+          "scheduled_utc": "2026-03-09T06:15:00Z",
+          "suppressed": "quiet_zone",
+          "config_v": 1,
+          "index": 22
+        }
+      ]
+    },
+    {
+      "name": "disabled_stream_empty",
+      "note": "disabled stream generates nothing (off != suppressed)",
+      "config_history": [
+        {
+          "version": 1,
+          "effective_from": "2026-01-01T00:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "q",
+              "name": "q",
+              "enabled": false,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "fixed_times",
+                "times_local": [
+                  "08:00",
+                  "12:30",
+                  "20:00"
+                ],
+                "days": [
+                  "mon",
+                  "wed",
+                  "fri"
+                ]
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        }
+      ],
+      "stream": "q",
+      "local_day": "2026-08-19",
+      "expected": []
+    }
+  ]
+}
