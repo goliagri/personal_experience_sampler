@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-**Milestones 1–3 implemented** (shared core + conformance in Python and Kotlin; desktop MVP: engine, sync over a local-folder CloudStore, tkinter UI; Drive store: library-free OAuth in `desktop/pes/store/oauth.py` + REST `DriveStore` in `drive.py`, tested against `tests/scenarios/drive_fake.py`). The Kotlin Drive store is deferred to the Android MVP (M4, owner's decision). Next per §17: Android MVP (M4), sync hardening (M5). Authoritative documents:
+**Milestones 1–4 implemented** (shared core + conformance in Python and Kotlin; desktop MVP; Drive store: library-free OAuth in `desktop/pes/store/oauth.py` + REST `DriveStore` in `drive.py`; Android MVP: `android/runtime` is a pure-JVM Kotlin port of engine/sync/db/cloud with the scenario suites mirrored as JVM tests, `android/app` is the Compose client — exact alarms, notifications with conditional inline reply, Answer screen, permissions checklist, WorkManager sync, Kotlin `DriveStore` + Google Identity auth). M4's manual on-phone checklist and the Android OAuth client registration (needs the app SHA-1) are still pending with the owner. Next per §17: sync hardening (M5). Authoritative documents:
 
 - `SPECIFICATION.md` — the full technical spec: data model, scheduler, sync, clients, repo layout, milestones.
 - `PROJECT_PREFERENCES.md` — the owner's intent and priorities. **Read it first**; when the spec is silent or ambiguous, resolve in the direction of these preferences.
@@ -13,12 +13,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Commands:
 
 - Python tests: `cd desktop && python -m pytest` (needs `pytest hypothesis`; subsets: `tests/conformance`, `tests/properties`, `tests/scenarios`; single test: `python -m pytest tests/scenarios/test_expiry_snooze.py::test_fire_expire_backlog`).
-- Kotlin tests: `cd android && ./gradlew :core:test` (JDK 17+).
+- Kotlin tests: `cd android && ./gradlew :core:test :runtime:test` (JDK 17+; `:runtime:test` is the mirrored scenario suite). Android build: `./gradlew :app:assembleDebug` (SDK auto-installs to the path in `local.properties`).
 - Regenerate conformance vectors (from repo root): `python3 spec/tools/generate_vectors.py` — only alongside a reviewed core change, and any core change must keep **both** languages' cores and suites in step.
 - Run the desktop app: `cd desktop && python -m pes` (`--data-dir`, `--cloud-dir`).
 - Lint: `ruff check desktop/pes desktop/tests`.
 
 Key desktop layering: `pes/core/` is pure and deterministic (mirrored file-for-file by `android/core`); `pes/engine.py` is the headless runtime (injected clock + notifier — scenario tests drive it with `FakeClock`/`RecordingNotifier`, two SimDevices sharing one folder); `pes/sync.py` implements §8.4 over `pes/store/cloud.py`'s `CloudStore`; `pes/ui/` (tkinter) and `pes/tray.py` sit on top and contain no scheduling/fold logic.
+
+The Android side mirrors this layering exactly: `android/runtime` (pure JVM) ports `engine.py`→`Engine.kt`, `sync.py`→`Sync.kt`, `store/db.py`→`store/Db.kt` (same SQL schema, over androidx.sqlite's bundled driver so it runs in JVM tests and on-device), `store/cloud.py`→`store/Cloud.kt`, `store/drive.py`→`store/Drive.kt` (injectable `HttpSession`; `Http.kt` has the HttpURLConnection session + `TokenSource`/`AuthorizedSession`). Keep the Python and Kotlin runtime layers in step the same way the cores are kept in step. `android/app` holds only platform glue: `PesApp`/`EngineHost` (engine on one dedicated thread; the sync worker opens its own Db — WAL), `Alarms` (one `setExactAndAllowWhileIdle` at `engine.nextWake`), `Notifications` (inline tags reply only when §10.3 allows), Compose screens, `DriveConnection` (Google Identity AuthorizationClient — no client secret in the app).
 
 ## What this is
 

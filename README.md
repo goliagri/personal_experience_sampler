@@ -26,18 +26,27 @@ Authoritative documents: [`SPECIFICATION.md`](SPECIFICATION.md) (design) and
   once, then Settings > "Connect Google Drive..." (browser consent; the token
   is stored locally, never synced). Tests: `cd desktop && python -m pytest`
   (conformance + property + multi-device scenario suites).
-- `android/` — Kotlin Gradle project. `core` is a pure-JVM module mirroring
+- `android/` — Kotlin Gradle project. `:core` is a pure-JVM module mirroring
   `desktop/pes/core` file-for-file; it runs the same `spec/` fixtures
-  (`cd android && ./gradlew :core:test`). The `:app` Android module arrives at
-  Milestone 4.
+  (`cd android && ./gradlew :core:test`). `:runtime` (also pure JVM) mirrors
+  `desktop/pes/{engine,sync,store}` — the headless engine, the §8.4 sync
+  procedure, the local db, and the Drive REST store — with the scenario
+  suites as JVM tests (`./gradlew :runtime:test`). `:app` is the Android
+  client (Jetpack Compose): exact alarms via `setExactAndAllowWhileIdle`,
+  ping notifications with inline tags reply, the Answer screen, a permissions
+  checklist, and hourly WorkManager sync to Google Drive (authorized through
+  Google Identity — no client secret ships in the app). Build with
+  `./gradlew :app:assembleDebug`; the first build downloads the Android SDK
+  to the path in `local.properties`.
 - `analysis/` — offline analysis package (later milestone).
 
 ## Development
 
 ```
 pip install pytest hypothesis
-cd desktop && python -m pytest          # Python conformance + property tests
-cd android && ./gradlew :core:test      # Kotlin conformance + property tests (JDK 17+)
+cd desktop && python -m pytest                    # Python conformance + property tests
+cd android && ./gradlew :core:test :runtime:test  # Kotlin conformance + scenario tests (JDK 17+)
+cd android && ./gradlew :app:assembleDebug        # Android APK
 ```
 
 ## Privacy

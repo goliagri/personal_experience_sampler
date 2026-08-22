@@ -1,0 +1,67 @@
+package pes.app
+
+import android.content.Context
+import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.Worker
+import androidx.work.WorkerParameters
+import java.io.File
+import java.io.IOException
+import java.util.concurrent.TimeUnit
+import pes.Engine
+import pes.Syncer
+import pes.store.AuthorizedSession
+import pes.store.Db
+import pes.store.DriveStore
+
+/**
+ * Sync (spec §11): WorkManager periodic (1 h, network-connected) plus
+ * one-shot runs on triggers (after answers, from Settings). Like the desktop
+ * sync worker, this opens its own Db (connections are single-threaded; WAL
+ * allows it alongside the engine thread) so the ping path never waits on the
+ * network.
+ */
+class SyncWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
+    override fun doWork(): Result {
+        val context = applicationContext
+        if (!DriveConnection.connected(context)) return Result.success()
+        val db = Db(File(context.filesDir, "pes.sqlite").path)
+        try {
+            val deviceId = db.kvGet("device", "device_id") ?: return Result.success()
+            val notifier = AndroidNotifier(context)
+            val engine = Engine(db, deviceId, notifier)
+            notifier.engine = engine
+            val store = DriveStore(AuthorizedSession(GmsTokenSource(context)), db)
+            Syncer(engine, store).sync()
+            // Imported events may change pending samples; move the alarm.
+            Alarms.schedule(context, engine.nextWake(engine.clock.now()))
+            return Result.success()
+        } catch (_: IOException) {
+            return Result.retry()
+        } finally {
+            db.close()
+        }
+    }
+
+    companion object {
+        fun ensurePeriodic(context: Context) {
+            val request = PeriodicWorkRequestBuilder<SyncWorker>(1, TimeUnit.HOURS)
+                .setConstraints(
+                    Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+                )
+                .build()
+            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+                "pes-sync", ExistingPeriodicWorkPolicy.KEEP, request
+            )
+        }
+
+        fun syncNow(context: Context) {
+            WorkManager.getInstance(context)
+                .enqueue(OneTimeWorkRequestBuilder<SyncWorker>().build())
+        }
+    }
+}

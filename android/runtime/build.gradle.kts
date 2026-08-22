@@ -1,10 +1,15 @@
+// Pure-JVM runtime layer mirroring desktop/pes/{engine,sync,store}: the
+// headless engine, the §8.4 sync procedure, and the local database written
+// against androidx.sqlite so the same code runs in JVM scenario tests
+// (BundledSQLiteDriver) and inside the Android app.
 plugins {
     kotlin("jvm")
 }
 
 dependencies {
-    // Tree API only (Json.parseToJsonElement); no serialization compiler plugin needed.
+    api(project(":core"))
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    api("androidx.sqlite:sqlite-bundled:2.5.2")
     testImplementation(kotlin("test"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
