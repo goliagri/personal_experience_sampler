@@ -12,7 +12,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install pytest hypothesis
+      - run: pip install pytest hypothesis requests
       - run: python -m pytest desktop/tests -q
       - name: Vectors are reproducible
         run: |
@@ -27,4 +27,4 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - run: cd android && ./gradlew :core:test --console=plain
+      - run: cd android && ./gradlew :core:test :runtime:test --console=plain

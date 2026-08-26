@@ -36,12 +36,21 @@ class SyncWorker(context: Context, params: WorkerParameters) : Worker(context, p
             val engine = Engine(db, deviceId, notifier)
             notifier.engine = engine
             val store = DriveStore(AuthorizedSession(GmsTokenSource(context)), db)
-            Syncer(engine, store).sync()
+            val result = Syncer(engine, store).sync()
+            db.kvSet("sync_meta", "last_sync_error", "")
+            db.kvSet(
+                "sync_meta", "last_sync_result",
+                "imported ${result.imported.size} file(s), exported ${result.exported.size}," +
+                    " backfilled ${result.backfilled}" +
+                    (if (result.warnings.isEmpty()) "" else "; ${result.warnings.joinToString("; ")}"),
+            )
             // Imported events may change pending samples; move the alarm.
             Alarms.schedule(context, engine.nextWake(engine.clock.now()))
             return Result.success()
-        } catch (_: IOException) {
-            return Result.retry()
+        } catch (e: Exception) {
+            // Surface the failure in Settings instead of dying silently.
+            runCatching { db.kvSet("sync_meta", "last_sync_error", e.toString().take(500)) }
+            return if (e is IOException) Result.retry() else Result.failure()
         } finally {
             db.close()
         }

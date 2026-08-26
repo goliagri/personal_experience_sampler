@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Commands:
 
-- Python tests: `cd desktop && python -m pytest` (needs `pytest hypothesis`; subsets: `tests/conformance`, `tests/properties`, `tests/scenarios`; single test: `python -m pytest tests/scenarios/test_expiry_snooze.py::test_fire_expire_backlog`).
+- Python tests: `cd desktop && python -m pytest` (needs `pytest hypothesis requests`; subsets: `tests/conformance`, `tests/properties`, `tests/scenarios`; single test: `python -m pytest tests/scenarios/test_expiry_snooze.py::test_fire_expire_backlog`).
 - Kotlin tests: `cd android && ./gradlew :core:test :runtime:test` (JDK 17+; `:runtime:test` is the mirrored scenario suite). Android build: `./gradlew :app:assembleDebug` (SDK auto-installs to the path in `local.properties`).
 - Regenerate conformance vectors (from repo root): `python3 spec/tools/generate_vectors.py` — only alongside a reviewed core change, and any core change must keep **both** languages' cores and suites in step.
 - Run the desktop app: `cd desktop && python -m pes` (`--data-dir`, `--cloud-dir`).

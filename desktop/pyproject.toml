@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Personal Experience Sampler — desktop client and shared core"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-dependencies = []
+dependencies = ["requests"]
 
 [project.optional-dependencies]
 test = ["pytest", "hypothesis"]

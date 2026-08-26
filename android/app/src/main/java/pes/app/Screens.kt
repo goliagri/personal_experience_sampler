@@ -288,10 +288,16 @@ fun SettingsScreen(host: EngineHost, refresh: Int, bump: () -> Unit) {
         }
 
         HorizontalDivider()
-        DriveSection(host, bump)
+        DriveSection(host, refresh, bump)
 
         HorizontalDivider()
-        OutlinedButton(onClick = { SyncWorker.syncNow(context) }) { Text("Sync now") }
+        OutlinedButton(onClick = {
+            SyncWorker.syncNow(context)
+            scope.launch {
+                kotlinx.coroutines.delay(6000) // let the worker finish, then re-read status
+                bump()
+            }
+        }) { Text("Sync now") }
 
         ScheduleSection(host)
     }

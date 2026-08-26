@@ -78,10 +78,19 @@ class GmsTokenSource(private val context: Context) : TokenSource {
 }
 
 @Composable
-fun DriveSection(host: EngineHost, bump: () -> Unit) {
+fun DriveSection(host: EngineHost, refresh: Int, bump: () -> Unit) {
     val context = LocalContext.current
     var connected by remember { mutableStateOf(DriveConnection.connected(context)) }
     var status by remember { mutableStateOf<String?>(null) }
+    val syncState by androidx.compose.runtime.produceState<Triple<String?, String?, String?>?>(null, refresh) {
+        value = host.withEngine {
+            Triple(
+                it.db.kvGet("sync_meta", "last_sync"),
+                it.db.kvGet("sync_meta", "last_sync_result"),
+                it.db.kvGet("sync_meta", "last_sync_error")?.takeIf { e -> e.isNotEmpty() },
+            )
+        }
+    }
 
     val consent = rememberLauncherForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
@@ -105,9 +114,24 @@ fun DriveSection(host: EngineHost, bump: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Google Drive sync", style = MaterialTheme.typography.titleMedium)
         Text(
-            if (connected) "Syncing to Google Drive" else "Not connected",
+            if (connected) "Drive connected" else "Not connected",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        syncState?.let { (last, result, error) ->
+            Text(
+                "Last successful sync: ${last ?: "never"}" +
+                    (result?.let { r -> " ($r)" } ?: ""),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (error != null) {
+                Text(
+                    "Last sync failed: $error",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
         if (connected) {
             OutlinedButton(onClick = {
                 DriveConnection.setConnected(context, false)
