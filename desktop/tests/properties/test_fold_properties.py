@@ -13,7 +13,6 @@ import random
 
 from hypothesis import given, settings
 from hypothesis import strategies as st
-
 from pes.core.fold import fold_sample
 
 SAMPLE = "s|2026-08-20T15:00:00Z"

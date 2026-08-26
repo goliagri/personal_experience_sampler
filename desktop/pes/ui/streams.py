@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from tkinter import ttk
 from zoneinfo import ZoneInfo
 
+from ..core.config_validation import validate_config
 from ..core.scheduler import resolve_day
 from . import theme
 from .configedit import stage_config_change
@@ -124,9 +125,9 @@ class StreamEditor(tk.Toplevel):
         self._render_params(protocol)
 
         # Quiet zones: one per line, "mon,tue,wed 23:00-07:30".
-        ttk.Label(form, text="Quiet zones (days HH:MM-HH:MM, one per line)").pack(
-            anchor="w", pady=(8, 2)
-        )
+        ttk.Label(
+            form, text="Quiet zones, one per line (e.g. mon,tue 23:00-07:30)"
+        ).pack(anchor="w", pady=(8, 2))
         self.zones_text = tk.Text(form, height=3)
         self.zones_text.pack(fill="x")
         for zone in stream.get("quiet_zones", []):
@@ -279,6 +280,16 @@ class StreamEditor(tk.Toplevel):
             self.error.configure(text="No config yet.")
             return
         trial = {**config, "streams": [doc], "effective_from": "1970-01-01T00:00:00Z"}
+        # Same checks as Save, so bad input gets a stable error code instead
+        # of a traceback from the scheduler (now=None: skip the past-
+        # effective_from check, which the trial doc fails by construction).
+        errors = validate_config(
+            trial, list(self.app.engine.db.all_surveys().keys()), now=None
+        )
+        if errors:
+            self.error.configure(text="Invalid: " + ", ".join(errors))
+            return
+        self.error.configure(text="")
         tz = ZoneInfo(config["timezone"])
         now = self.app.engine.clock.now()
         today = datetime.fromtimestamp(now, UTC).astimezone(tz).date()

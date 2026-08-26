@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from pes.core.timeutil import parse_utc
+
 from tests.scenarios.conftest import base_config, fixed_stream
 
 SAMPLE = "st|2026-08-24T16:00:00Z"
@@ -47,6 +48,34 @@ def test_future_effective_config_regenerates_piecewise(mkdevice, clock):
 
     # The already-fired sample is undisturbed.
     assert [ev["ev"] for ev in dev.sample_events(SAMPLE)] == ["fired"]
+
+
+def test_test_ping_works_before_new_stream_effective(mkdevice, clock):
+    """A just-staged stream (future effective_from) is usable for test pings:
+    stream_config falls back to the latest config, so the sample can be
+    fired, notified with the right name, and answered."""
+    dev = mkdevice("laptop-dddd0004")
+    dev.boot(base_config([fixed_stream()]))
+    assert (
+        dev.engine.stage_new_config(
+            streams=[fixed_stream(), fixed_stream(sid="st2", name="New stream")],
+            defaults=dev.db.latest_config()["defaults"],
+            timezone="America/Los_Angeles",
+            effective_from="2026-08-25T07:00:00Z",  # tomorrow
+        )
+        == []
+    )
+
+    sample = dev.engine.fire_test_ping("st2")
+    assert dev.notifier.shown[-1][1] == "New stream"
+    row = dev.engine.answer(sample, {"tags": ["works"]})
+    assert row["status"] == "answered" and row["test"] is True
+    # Real scheduling still gated: nothing for st2 before its effective_from.
+    planned = dev.db.conn.execute(
+        "SELECT COUNT(*) FROM schedule WHERE stream = 'st2'"
+        " AND scheduled_utc < '2026-08-25T07:00:00Z'"
+    ).fetchone()[0]
+    assert planned == 0
 
 
 def test_concurrent_config_edit_conflict(mkdevice, clock, cloud):

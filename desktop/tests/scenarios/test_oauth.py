@@ -13,7 +13,6 @@ import urllib.parse
 import urllib.request
 
 import pytest
-
 from pes.store.oauth import DriveAuth, DriveAuthError
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pes.core.timeutil import parse_utc
+
 from tests.scenarios.conftest import base_config, fixed_stream
 
 SAMPLE = "st|2026-08-24T16:00:00Z"  # 09:00 local

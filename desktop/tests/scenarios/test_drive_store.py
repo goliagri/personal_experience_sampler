@@ -5,10 +5,10 @@ uploads, and a full cross-device sync scenario running on Drive."""
 from __future__ import annotations
 
 import pytest
-
 from pes.store import Db, DriveStore, MultipleRootsError
 from pes.store.drive import FOLDER_MIME, ROOT_FOLDER_NAME
 from pes.sync import Syncer
+
 from tests.scenarios.conftest import T0, SimDevice, base_config, fixed_stream
 from tests.scenarios.drive_fake import FakeDrive
 

@@ -4,7 +4,6 @@ sharing one local-folder cloud, driven by a single fake clock."""
 from __future__ import annotations
 
 import pytest
-
 from pes.clock import FakeClock
 from pes.core.timeutil import parse_utc
 from pes.engine import Engine

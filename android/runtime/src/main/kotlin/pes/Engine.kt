@@ -69,8 +69,15 @@ class Engine(
         return effective ?: history.firstOrNull()
     }
 
+    /** Stream definition at an instant. Falls back to the latest staged
+     * config so a just-created stream is usable (test pings, answering)
+     * before its effective_from; scheduling never goes through this — it
+     * resolves the config history itself, so effective_from still gates
+     * real pings. */
     fun streamConfig(streamId: String, instant: Long): JsonObject? =
-        configAt(instant)?.objList("streams")?.firstOrNull { it.str("id") == streamId }
+        listOfNotNull(configAt(instant), db.latestConfig()).firstNotNullOfOrNull { config ->
+            config.objList("streams").firstOrNull { it.str("id") == streamId }
+        }
 
     /** Cascade: stream overrides -> config defaults -> built-ins (§6.5). */
     fun effectiveSettings(streamId: String, instant: Long): JsonObject {

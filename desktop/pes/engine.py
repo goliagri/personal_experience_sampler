@@ -52,12 +52,15 @@ class Engine:
         return effective or (history[0] if history else None)
 
     def stream_config(self, stream_id: str, instant: int) -> dict | None:
-        config = self.config_at(instant)
-        if not config:
-            return None
-        for s in config["streams"]:
-            if s["id"] == stream_id:
-                return s
+        """Stream definition at an instant. Falls back to the latest staged
+        config so a just-created stream is usable (test pings, answering)
+        before its effective_from; scheduling never goes through this — it
+        resolves the config history itself, so effective_from still gates
+        real pings."""
+        for config in (self.config_at(instant), self.db.latest_config()):
+            for s in (config or {}).get("streams", []):
+                if s["id"] == stream_id:
+                    return s
         return None
 
     def effective_settings(self, stream_id: str, instant: int) -> dict:

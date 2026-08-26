@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from pes.store import LocalFolderStore
 from pes.ui.surveys import validate_survey
 from pes.ui.widgets import invalid_tags, split_tags
