@@ -168,7 +168,10 @@ class DriveStore(CloudStore):
                 f for f in self._children(parent, name) if f["mimeType"] == FOLDER_MIME
             ]
             if found:
-                parent = found[0]["id"]
+                # Duplicates can appear (two devices creating the folder
+                # concurrently); every device must pick the same one, so
+                # choose deterministically by lowest file ID.
+                parent = min(found, key=lambda f: f["id"])["id"]
             elif create:
                 parent = self._create_folder(name, parent)
             else:
@@ -199,8 +202,10 @@ class DriveStore(CloudStore):
         ]
         if not found:
             return None
-        self._cache(key, found[0]["id"])
-        return found[0]
+        # Same-name duplicates: deterministic pick (lowest ID) on every device.
+        chosen = min(found, key=lambda f: f["id"])
+        self._cache(key, chosen["id"])
+        return chosen
 
     # -- CloudStore interface ---------------------------------------------
 

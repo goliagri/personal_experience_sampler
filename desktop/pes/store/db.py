@@ -133,31 +133,11 @@ class Db:
 
         Returns the sample ids whose event sets changed (for refolding).
         """
-        before = {
-            (line, payload)
-            for line, payload in self.conn.execute(
-                "SELECT line, payload_json FROM events WHERE source_file = ?",
-                (source_file,),
-            )
-        }
-        affected: set[str] = set()
-        for line_no, raw in enumerate(raw_lines):
-            if (line_no, raw) in before:
-                continue
-            ev = json.loads(raw)
-            if ev.get("sample"):
-                affected.add(ev["sample"])
-        for _line, payload in before - {
-            (i, raw) for i, raw in enumerate(raw_lines)
-        }:
-            ev = json.loads(payload)
-            if ev.get("sample"):
-                affected.add(ev["sample"])
-
-        self.conn.execute("DELETE FROM events WHERE source_file = ?", (source_file,))
+        # Parse every line before touching the table so a malformed file
+        # raises without half-replacing the cached copy.
+        parsed = [json.loads(raw) for raw in raw_lines]
         rows = []
-        for line_no, raw in enumerate(raw_lines):
-            ev = json.loads(raw)
+        for line_no, (raw, ev) in enumerate(zip(raw_lines, parsed)):
             rows.append(
                 (
                     ev["dev"],
@@ -170,6 +150,28 @@ class Db:
                     line_no,
                 )
             )
+
+        before = {
+            (line, payload)
+            for line, payload in self.conn.execute(
+                "SELECT line, payload_json FROM events WHERE source_file = ?",
+                (source_file,),
+            )
+        }
+        affected: set[str] = set()
+        for line_no, (raw, ev) in enumerate(zip(raw_lines, parsed)):
+            if (line_no, raw) in before:
+                continue
+            if ev.get("sample"):
+                affected.add(ev["sample"])
+        for _line, payload in before - {
+            (i, raw) for i, raw in enumerate(raw_lines)
+        }:
+            ev = json.loads(payload)
+            if ev.get("sample"):
+                affected.add(ev["sample"])
+
+        self.conn.execute("DELETE FROM events WHERE source_file = ?", (source_file,))
         self.conn.executemany(
             "INSERT INTO events (dev, ev, sample, stream, t, payload_json,"
             " synced, source_file, line) VALUES (?,?,?,?,?,?,1,?,?)",
@@ -226,11 +228,19 @@ class Db:
             )
         ]
 
-    def mark_month_synced(self, dev: str, month: str) -> None:
+    def mark_month_synced(self, dev: str, month: str, upto_line: int | None = None) -> None:
+        """Mark a month's events uploaded; ``upto_line`` bounds the snapshot
+        that was actually written (events appended mid-upload stay unsynced)."""
         source = f"events/{dev}/{month}.jsonl"
-        self.conn.execute(
-            "UPDATE events SET synced = 1 WHERE source_file = ?", (source,)
-        )
+        if upto_line is None:
+            self.conn.execute(
+                "UPDATE events SET synced = 1 WHERE source_file = ?", (source,)
+            )
+        else:
+            self.conn.execute(
+                "UPDATE events SET synced = 1 WHERE source_file = ? AND line < ?",
+                (source, upto_line),
+            )
         self.conn.commit()
 
     # -- samples (folded view) -------------------------------------------

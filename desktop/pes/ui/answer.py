@@ -40,6 +40,9 @@ class FieldWidget:
     def focus_target(self) -> tk.Widget:
         raise NotImplementedError
 
+    def prefill(self, value) -> None:  # editing an existing answer
+        pass
+
 
 class TextField(FieldWidget):
     def __init__(self, parent, field):
@@ -56,6 +59,12 @@ class TextField(FieldWidget):
         else:
             text = self.widget.get()
         return text if text.strip() else None
+
+    def prefill(self, value) -> None:
+        if isinstance(self.widget, tk.Text):
+            self.widget.insert("1.0", str(value))
+        else:
+            self.widget.insert(0, str(value))
 
     def check(self, value):
         max_len = self.field.get("max_len")
@@ -112,6 +121,13 @@ class NumberField(FieldWidget):
         except ValueError:
             return text  # caught by check()
 
+    def prefill(self, value) -> None:
+        if self.entry is None:
+            self.scale_var.set(value)
+            self.touched = True
+        else:
+            self.var.set(str(value))
+
     def check(self, value):
         if isinstance(value, str):
             return "not a whole number" if self.field.get("integer") else "not a number"
@@ -140,6 +156,9 @@ class TagsField(FieldWidget):
     def value(self):
         tags = self.widget.get()
         return tags or None
+
+    def prefill(self, value) -> None:
+        self.widget.set(list(value))
 
     def check(self, _value):
         return self.widget.errors()
@@ -203,6 +222,14 @@ class ChoiceField(FieldWidget):
             return chosen or None
         return self.var.get() or None
 
+    def prefill(self, value) -> None:
+        if self.vars is not None:
+            for v in value if isinstance(value, list) else [value]:
+                if v in self.vars:
+                    self.vars[v].set(True)
+        else:
+            self.var.set(value[0] if isinstance(value, list) else value)
+
     def focus_target(self):
         return self.first_widget
 
@@ -227,6 +254,7 @@ class AnswerWindow(tk.Toplevel):
         self.engine = app.engine
         self.sample_id = sample_id
         self.supersedes = supersedes
+        self.prefill_answers = prefill or {}
         stream_id, scheduled_iso = sample_id.split("|", 1)
         self.scheduled = parse_utc(scheduled_iso)
         stream = (
@@ -318,6 +346,9 @@ class AnswerWindow(tk.Toplevel):
             )
             widget.error_label = ttk.Label(block, text="", foreground="#c62828")
             widget.error_label.pack(anchor="w")
+            existing = self.prefill_answers.get(field["id"])
+            if existing is not None:
+                widget.prefill(existing)
             self.widgets.append(widget)
 
         footer = ttk.Frame(self, padding=12)

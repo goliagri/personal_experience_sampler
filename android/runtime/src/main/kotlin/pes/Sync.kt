@@ -110,12 +110,12 @@ class Syncer(
                 return
             }
             if (cloud.int("version") > local.int("version")) {
-                adoptHistoryBetween(local.int("version"), cloud.int("version"))
+                reconcileHistory(cloud.int("version"), result)
                 engine.applyConfig(cloud)
                 result.appliedConfig = cloud.int("version")
             }
         } else if (cloud != null) {
-            adoptHistoryBetween(0, cloud.int("version"))
+            reconcileHistory(cloud.int("version"), result)
             engine.applyConfig(cloud)
             result.appliedConfig = cloud.int("version")
         }
@@ -137,13 +137,37 @@ class Syncer(
         rememberEtag(path)
     }
 
-    /** Cache intermediate config versions for piecewise scheduling. */
-    private fun adoptHistoryBetween(after: Int, before: Int) {
-        for (v in (after + 1) until before) {
-            store.get("config/history/config_v%04d.json".format(v))?.let {
-                db.upsertConfig(parseJson(it.decodeToString()))
+    /**
+     * Cache the cloud's config versions below `before` for piecewise
+     * scheduling. A local doc that disagrees with the cloud's same-version
+     * doc lost a race it never saw (another device's version chain moved
+     * past it, §8.2): archive it as a conflict and adopt the cloud lineage —
+     * silently keeping it would schedule from a history no other device has.
+     */
+    private fun reconcileHistory(before: Int, result: SyncResult) {
+        val localByV = db.configHistory().associateBy { it.int("version") }
+        for (v in 1 until before) {
+            val raw = store.get("config/history/config_v%04d.json".format(v)) ?: continue
+            val cloudDoc = parseJson(raw.decodeToString())
+            val localDoc = localByV[v]
+            if (localDoc == cloudDoc) continue
+            if (localDoc != null) {
+                archiveRejected(localDoc, result)
+                result.warnings.add(
+                    "config v$v from ${localDoc.str("written_by")} rejected" +
+                        " (cloud lineage moved past it); kept ${cloudDoc.str("written_by")}'s"
+                )
             }
+            db.upsertConfig(cloudDoc)
         }
+    }
+
+    private fun archiveRejected(doc: JsonObject, result: SyncResult) {
+        val stamp = doc.str("written_at").replace(":", "").replace("-", "")
+        val conflictPath = "config/conflicts/config_v%04d_rejected_%s_%s.json"
+            .format(doc.int("version"), doc.str("written_by"), stamp)
+        store.putIfAbsent(conflictPath, dumpsDoc(doc))
+        result.conflicts.add(conflictPath)
     }
 
     /** Two writers branched the same base (§8.2): later written_at wins. */
@@ -153,11 +177,7 @@ class Syncer(
         } else {
             Pair(cloud, local)
         }
-        val stamp = loser.str("written_at").replace(":", "").replace("-", "")
-        val conflictPath = "config/conflicts/config_v%04d_rejected_%s_%s.json"
-            .format(loser.int("version"), loser.str("written_by"), stamp)
-        store.putIfAbsent(conflictPath, dumpsDoc(loser))
-        result.conflicts.add(conflictPath)
+        archiveRejected(loser, result)
         result.warnings.add(
             "config v${loser.int("version")} from ${loser.str("written_by")} rejected" +
                 " (concurrent edit); kept ${winner.str("written_by")}'s"
@@ -167,6 +187,9 @@ class Syncer(
         } else {
             store.put("config/current.json", dumpsDoc(local))
         }
+        // The loser may have uploaded its doc as this version's history file
+        // already; the lineage must record the winner.
+        store.put("config/history/config_v%04d.json".format(winner.int("version")), dumpsDoc(winner))
         rememberEtag("config/current.json")
     }
 
@@ -210,9 +233,12 @@ class Syncer(
         val dev = engine.deviceId
         for (month in db.unsyncedMonths(dev)) {
             val path = "events/$dev/$month.jsonl"
-            val content = (db.monthLines(dev, month).joinToString("\n") + "\n").toByteArray(Charsets.UTF_8)
-            store.put(path, content)
-            db.markMonthSynced(dev, month)
+            val lines = db.monthLines(dev, month)
+            store.put(path, (lines.joinToString("\n") + "\n").toByteArray(Charsets.UTF_8))
+            // Mark only the snapshot uploaded: the engine thread may append
+            // to this month while the put is in flight, and those events
+            // must stay unsynced for the next trigger.
+            db.markMonthSynced(dev, month, uptoLine = lines.size)
             rememberEtag(path)
         }
     }
@@ -228,39 +254,53 @@ class Syncer(
         for (path in paths) {
             if (!changed(path)) continue
             val raw = store.get(path) ?: continue
-            val affected = db.importFile(path, raw.decodeToString().lines().filter { it.isNotEmpty() })
+            // A malformed file is skipped with a warning — its etag stays
+            // unremembered so it is retried, and it cannot block the
+            // remaining files.
+            val affected = try {
+                db.importFile(path, raw.decodeToString().split("\n").filter { it.isNotEmpty() })
+            } catch (e: Exception) {
+                if (e is java.io.IOException) throw e
+                result.warnings.add("skipped $path: malformed line ($e)")
+                continue
+            }
             result.imported.add(path)
             rememberEtag(path)
             for (sampleId in affected) {
-                val row = engine.refold(sampleId)
+                engine.refold(sampleId)
                 changedStreams.add(sampleId.substringBefore("|"))
-                val status = row.optStr("status")
-                if (status in TERMINAL) {
+                val types = db.eventsForSample(sampleId).map { it.third.str("ev") }.toSet()
+                if (types.intersect(TERMINAL).isNotEmpty()) {
                     engine.notifier.cancel(sampleId)
-                } else if (status == "pending" && row["observed"]?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content == "true" } == true) {
-                    // Retroactive expiry (§8.4 step 3), independent of the
-                    // backfill watermark.
-                    val scheduled = parseUtc(row.str("scheduled_utc"))
-                    val expiryS = engine.effectiveSettings(row.str("stream"), scheduled)
-                        .int("expiry_minutes") * 60L
-                    if (scheduled + expiryS < now) {
-                        engine.appendEvent(
-                            kotlinx.serialization.json.buildJsonObject {
-                                put("ev", kotlinx.serialization.json.JsonPrimitive("expired"))
-                                put(
-                                    "config_v",
-                                    kotlinx.serialization.json.JsonPrimitive(
-                                        engine.configAt(scheduled)?.int("version") ?: 0
-                                    ),
-                                )
-                                put("t", kotlinx.serialization.json.JsonPrimitive(fmtUtc(now)))
-                                put("dev", kotlinx.serialization.json.JsonPrimitive(engine.deviceId))
-                                put("sample", kotlinx.serialization.json.JsonPrimitive(sampleId))
-                                put("stream", kotlinx.serialization.json.JsonPrimitive(row.str("stream")))
-                            }
-                        )
-                        engine.notifier.cancel(sampleId)
-                    }
+                    continue
+                }
+                // Retroactive expiry (§8.4 step 3), independent of the
+                // backfill watermark — decided on event types, not the
+                // folded status: fired + unobserved folds to unobserved
+                // (precedence), yet an observed sample whose window has
+                // passed must still be closed out as expired.
+                if ("fired" !in types) continue
+                val streamId = sampleId.substringBefore("|")
+                val scheduled = parseUtc(sampleId.substringAfter("|"))
+                val expiryS = engine.effectiveSettings(streamId, scheduled)
+                    .int("expiry_minutes") * 60L
+                if (scheduled + expiryS < now) {
+                    engine.appendEvent(
+                        kotlinx.serialization.json.buildJsonObject {
+                            put("ev", kotlinx.serialization.json.JsonPrimitive("expired"))
+                            put(
+                                "config_v",
+                                kotlinx.serialization.json.JsonPrimitive(
+                                    engine.configAt(scheduled)?.int("version") ?: 0
+                                ),
+                            )
+                            put("t", kotlinx.serialization.json.JsonPrimitive(fmtUtc(now)))
+                            put("dev", kotlinx.serialization.json.JsonPrimitive(engine.deviceId))
+                            put("sample", kotlinx.serialization.json.JsonPrimitive(sampleId))
+                            put("stream", kotlinx.serialization.json.JsonPrimitive(streamId))
+                        }
+                    )
+                    engine.notifier.cancel(sampleId)
                 }
             }
         }

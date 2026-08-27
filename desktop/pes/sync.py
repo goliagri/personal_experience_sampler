@@ -82,11 +82,11 @@ class Syncer:
                 self._resolve_conflict(local, cloud, result)
                 return
             if cloud["version"] > local["version"]:
-                self._adopt_history_between(local["version"], cloud["version"])
+                self._reconcile_history(cloud["version"], result)
                 self.engine.apply_config(cloud)
                 result["applied_config"] = cloud["version"]
         elif cloud is not None and local is None:
-            self._adopt_history_between(0, cloud["version"])
+            self._reconcile_history(cloud["version"], result)
             self.engine.apply_config(cloud)
             result["applied_config"] = cloud["version"]
 
@@ -104,23 +104,43 @@ class Syncer:
             self.store.put(path, _dumps(local))
         self._remember_etag(path)
 
-    def _adopt_history_between(self, after: int, before: int) -> None:
-        """Cache intermediate config versions for piecewise scheduling."""
-        for v in range(after + 1, before):
+    def _reconcile_history(self, before: int, result: dict) -> None:
+        """Cache the cloud's config versions below ``before`` for piecewise
+        scheduling. A local doc that disagrees with the cloud's same-version
+        doc lost a race it never saw (another device's version chain moved
+        past it, §8.2): archive it as a conflict and adopt the cloud lineage
+        — silently keeping it would schedule from a history no other device
+        has."""
+        local_by_v = {d["version"]: d for d in self.db.config_history()}
+        for v in range(1, before):
             raw = self.store.get(f"config/history/config_v{v:04}.json")
-            if raw:
-                self.db.upsert_config(json.loads(raw))
+            if raw is None:
+                continue
+            cloud_doc = json.loads(raw)
+            local_doc = local_by_v.get(v)
+            if local_doc == cloud_doc:
+                continue
+            if local_doc is not None:
+                self._archive_rejected(local_doc, result)
+                result["warnings"].append(
+                    f"config v{v} from {local_doc['written_by']} rejected"
+                    f" (cloud lineage moved past it); kept {cloud_doc['written_by']}'s"
+                )
+            self.db.upsert_config(cloud_doc)
+
+    def _archive_rejected(self, doc: dict, result: dict) -> None:
+        stamp = doc["written_at"].replace(":", "").replace("-", "")
+        conflict_path = (
+            f"config/conflicts/config_v{doc['version']:04}"
+            f"_rejected_{doc['written_by']}_{stamp}.json"
+        )
+        self.store.put_if_absent(conflict_path, _dumps(doc))
+        result["conflicts"].append(conflict_path)
 
     def _resolve_conflict(self, local: dict, cloud: dict, result: dict) -> None:
         """Two writers branched the same base (§8.2): later written_at wins."""
         loser, winner = sorted([local, cloud], key=lambda d: d["written_at"])
-        stamp = loser["written_at"].replace(":", "").replace("-", "")
-        conflict_path = (
-            f"config/conflicts/config_v{loser['version']:04}"
-            f"_rejected_{loser['written_by']}_{stamp}.json"
-        )
-        self.store.put_if_absent(conflict_path, _dumps(loser))
-        result["conflicts"].append(conflict_path)
+        self._archive_rejected(loser, result)
         result["warnings"].append(
             f"config v{loser['version']} from {loser['written_by']} rejected"
             f" (concurrent edit); kept {winner['written_by']}'s"
@@ -129,6 +149,11 @@ class Syncer:
             self.engine.apply_config(cloud)
         else:
             self.store.put("config/current.json", _dumps(local))
+        # The loser may have uploaded its doc as this version's history file
+        # already; the lineage must record the winner.
+        self.store.put(
+            f"config/history/config_v{winner['version']:04}.json", _dumps(winner)
+        )
         self._remember_etag("config/current.json")
 
     def _sync_state(self, result: dict) -> None:
@@ -168,9 +193,12 @@ class Syncer:
         dev = self.engine.device_id
         for month in self.db.unsynced_months(dev):
             path = f"events/{dev}/{month}.jsonl"
-            content = ("\n".join(self.db.month_lines(dev, month)) + "\n").encode()
-            self.store.put(path, content)
-            self.db.mark_month_synced(dev, month)
+            lines = self.db.month_lines(dev, month)
+            self.store.put(path, ("\n".join(lines) + "\n").encode())
+            # Mark only the snapshot uploaded: the engine thread may append
+            # to this month while the put is in flight, and those events must
+            # stay unsynced for the next trigger.
+            self.db.mark_month_synced(dev, month, upto_line=len(lines))
             self._remember_etag(path)
 
     # -- step 3: import other devices' events ----------------------------
@@ -190,40 +218,53 @@ class Syncer:
             raw = self.store.get(path)
             if raw is None:
                 continue
-            lines = raw.decode().splitlines()
-            affected = self.db.import_file(path, lines)
+            # Split on newlines only (Android lines may contain raw non-ASCII
+            # such as U+2028, which str.splitlines would split on) and drop
+            # blanks; a malformed file is skipped with a warning — its etag
+            # stays unremembered so it is retried, and it cannot block the
+            # remaining files.
+            lines = [line for line in raw.decode().split("\n") if line]
+            try:
+                affected = self.db.import_file(path, lines)
+            except (ValueError, KeyError, TypeError) as exc:
+                result["warnings"].append(f"skipped {path}: malformed line ({exc})")
+                continue
             result["imported"].append(path)
             self._remember_etag(path)
             for sample_id in affected:
-                row = self.engine.refold(sample_id)
+                self.engine.refold(sample_id)
                 changed_streams.add(sample_id.split("|", 1)[0])
-                status = row.get("status")
-                if status in TERMINAL or status == "answered":
+                types = {e["ev"] for _f, _l, e in self.db.events_for_sample(sample_id)}
+                if types & TERMINAL:
                     self.engine.notifier.cancel(sample_id)
-                elif status == "pending" and row.get("observed"):
-                    # Retroactive expiry (§8.4 step 3), independent of the
-                    # backfill watermark.
-                    scheduled = parse_utc(row["scheduled_utc"])
-                    expiry_s = (
-                        self.engine.effective_settings(row["stream"], scheduled)[
-                            "expiry_minutes"
-                        ]
-                        * 60
+                    continue
+                # Retroactive expiry (§8.4 step 3), independent of the
+                # backfill watermark — decided on event types, not the folded
+                # status: fired + unobserved folds to unobserved (precedence),
+                # yet an observed sample whose window has passed must still
+                # be closed out as expired.
+                if "fired" not in types:
+                    continue
+                stream_id, scheduled_iso = sample_id.split("|", 1)
+                scheduled = parse_utc(scheduled_iso)
+                expiry_s = (
+                    self.engine.effective_settings(stream_id, scheduled)["expiry_minutes"]
+                    * 60
+                )
+                if scheduled + expiry_s < now:
+                    self.engine.append_event(
+                        {
+                            "ev": "expired",
+                            "config_v": (self.engine.config_at(scheduled) or {}).get(
+                                "version", 0
+                            ),
+                            "t": fmt_utc(now),
+                            "dev": self.engine.device_id,
+                            "sample": sample_id,
+                            "stream": stream_id,
+                        }
                     )
-                    if scheduled + expiry_s < now:
-                        self.engine.append_event(
-                            {
-                                "ev": "expired",
-                                "config_v": (self.engine.config_at(scheduled) or {}).get(
-                                    "version", 0
-                                ),
-                                "t": fmt_utc(now),
-                                "dev": self.engine.device_id,
-                                "sample": sample_id,
-                                "stream": row["stream"],
-                            }
-                        )
-                        self.engine.notifier.cancel(sample_id)
+                    self.engine.notifier.cancel(sample_id)
         result["changed_streams"] = sorted(changed_streams)
 
     # -- step 4: exports --------------------------------------------------

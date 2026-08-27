@@ -51,25 +51,43 @@ def resolve_day(
     ``effective_from`` <= instant (§6.1 step 1).
     """
     history = sorted(config_history, key=lambda c: c["version"])
-    boundaries = [parse_utc(c["effective_from"]) for c in history]
+    effective_from = [parse_utc(c["effective_from"]) for c in history]
 
-    # Generate per effective segment, in segment order.
+    # Effective intervals per version (§6.1 step 1): at any instant the
+    # version in effect is the *highest* one whose effective_from has passed.
+    # effective_from need not rise with version — a later edit may take
+    # effect before a still-pending one, which then never becomes effective;
+    # assuming monotonicity here would generate the same instant under two
+    # versions and mint a phantom +1 s ping via the collision rule. Nothing
+    # is generated before the earliest effective_from.
+    points = sorted(set(effective_from))
+    intervals: dict[int, list[tuple[int, int | None]]] = {}
+    for k, start in enumerate(points):
+        end = points[k + 1] if k + 1 < len(points) else None
+        version = max(
+            c["version"] for c, eff in zip(history, effective_from) if eff <= start
+        )
+        intervals.setdefault(version, []).append((start, end))
+
+    # Generate per effective version, in version order.
     raw: list[tuple[int, bool, int]] = []  # (utc, dst_gap, config_v) in generation order
-    for i, config in enumerate(history):
-        seg_start = boundaries[i]
-        seg_end = boundaries[i + 1] if i + 1 < len(history) else None
+    for config in history:
+        segments = intervals.get(config["version"], [])
         stream = _stream_in(config, stream_id)
-        if stream is None or not stream.get("enabled", True):
+        if not segments or stream is None or not stream.get("enabled", True):
             continue
         tz = ZoneInfo(config["timezone"])
         day_start, day_end = local_day_bounds(local_day, tz)
-        lo = max(day_start, seg_start)
-        hi = day_end if seg_end is None else min(day_end, seg_end)
-        if lo >= hi:
+        clipped = [
+            (max(day_start, lo), day_end if hi is None else min(day_end, hi))
+            for lo, hi in segments
+        ]
+        clipped = [(lo, hi) for lo, hi in clipped if lo < hi]
+        if not clipped:
             continue
         generate = get_protocol(stream["protocol"]["type"])
         for cand in generate(stream["protocol"], stream["seed"], local_day, tz):
-            if lo <= cand.utc < hi:
+            if any(lo <= cand.utc < hi for lo, hi in clipped):
                 raw.append((cand.utc, cand.dst_gap, config["version"]))
 
     # Collision rule (§6.2): in generation order, shift +1 s until unique.

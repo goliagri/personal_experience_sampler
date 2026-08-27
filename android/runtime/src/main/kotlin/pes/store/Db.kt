@@ -93,8 +93,23 @@ CREATE TABLE IF NOT EXISTS tag_vocab (
 // last_materialized_at, export hashes), "state" (state.json document).
 
 /** Serialize an event exactly like Python's
- * `json.dumps(ev, separators=(",", ":"), sort_keys=True)`. */
-fun dumpsLine(ev: JsonObject): String = Json.encodeToString(JsonElement.serializer(), sortKeys(ev))
+ * `json.dumps(ev, separators=(",", ":"), sort_keys=True)` — including
+ * ensure_ascii: every non-ASCII character is \\uXXXX-escaped, so a JSONL
+ * line can never contain characters like U+2028 that some line-splitters
+ * treat as newlines. */
+fun dumpsLine(ev: JsonObject): String =
+    escapeNonAscii(Json.encodeToString(JsonElement.serializer(), sortKeys(ev)))
+
+private fun escapeNonAscii(s: String): String {
+    if (s.all { it.code < 0x80 }) return s
+    val out = StringBuilder(s.length + 16)
+    for (ch in s) {
+        // Non-ASCII occurs only inside JSON string literals, where a \\uXXXX
+        // escape (surrogates as two escapes) is always valid.
+        if (ch.code < 0x80) out.append(ch) else out.append("\\u%04x".format(ch.code))
+    }
+    return out.toString()
+}
 
 private fun sortKeys(el: JsonElement): JsonElement = when (el) {
     is JsonObject -> JsonObject(el.entries.sortedBy { it.key }.associate { it.key to sortKeys(it.value) })
@@ -175,6 +190,15 @@ class Db(path: String) {
      * ids whose event sets changed (for refolding).
      */
     fun importFile(sourceFile: String, rawLines: List<String>): List<String> {
+        // Parse every line before touching the table so a malformed file
+        // throws without half-replacing the cached copy.
+        val parsed = rawLines.map { raw -> Pair(raw, parseJson(raw)) }
+        for ((_, ev) in parsed) {
+            ev.str("dev")
+            ev.str("ev")
+            ev.str("t")
+        }
+
         val before = query(
             "SELECT line, payload_json FROM events WHERE source_file = ?",
             { it.bindText(1, sourceFile) },
@@ -186,22 +210,29 @@ class Db(path: String) {
             (parseJson(raw).optStr("sample"))?.let { affected.add(it) }
         }
 
-        exec("DELETE FROM events WHERE source_file = ?") { it.bindText(1, sourceFile) }
-        for ((lineNo, raw) in rawLines.withIndex()) {
-            val ev = parseJson(raw)
-            exec(
-                "INSERT INTO events (dev, ev, sample, stream, t, payload_json," +
-                    " synced, source_file, line) VALUES (?,?,?,?,?,?,1,?,?)"
-            ) {
-                it.bindText(1, ev.str("dev"))
-                it.bindText(2, ev.str("ev"))
-                bindTextOrNull(it, 3, ev.optStr("sample"))
-                bindTextOrNull(it, 4, ev.optStr("stream"))
-                it.bindText(5, ev.str("t"))
-                it.bindText(6, raw)
-                it.bindText(7, sourceFile)
-                it.bindLong(8, lineNo.toLong())
+        conn.execSQL("BEGIN IMMEDIATE")
+        try {
+            exec("DELETE FROM events WHERE source_file = ?") { it.bindText(1, sourceFile) }
+            for ((lineNo, entry) in parsed.withIndex()) {
+                val (raw, ev) = entry
+                exec(
+                    "INSERT INTO events (dev, ev, sample, stream, t, payload_json," +
+                        " synced, source_file, line) VALUES (?,?,?,?,?,?,1,?,?)"
+                ) {
+                    it.bindText(1, ev.str("dev"))
+                    it.bindText(2, ev.str("ev"))
+                    bindTextOrNull(it, 3, ev.optStr("sample"))
+                    bindTextOrNull(it, 4, ev.optStr("stream"))
+                    it.bindText(5, ev.str("t"))
+                    it.bindText(6, raw)
+                    it.bindText(7, sourceFile)
+                    it.bindLong(8, lineNo.toLong())
+                }
             }
+            conn.execSQL("COMMIT")
+        } catch (e: Exception) {
+            conn.execSQL("ROLLBACK")
+            throw e
         }
         return affected.toList()
     }
@@ -238,9 +269,18 @@ class Db(path: String) {
             { it.bindText(1, "events/$dev/$month.jsonl") },
         ) { it.getText(0) }
 
-    fun markMonthSynced(dev: String, month: String) =
-        exec("UPDATE events SET synced = 1 WHERE source_file = ?") {
-            it.bindText(1, "events/$dev/$month.jsonl")
+    /** Mark a month's events uploaded; `uptoLine` bounds the snapshot that
+     * was actually written (events appended mid-upload stay unsynced). */
+    fun markMonthSynced(dev: String, month: String, uptoLine: Int? = null) =
+        if (uptoLine == null) {
+            exec("UPDATE events SET synced = 1 WHERE source_file = ?") {
+                it.bindText(1, "events/$dev/$month.jsonl")
+            }
+        } else {
+            exec("UPDATE events SET synced = 1 WHERE source_file = ? AND line < ?") {
+                it.bindText(1, "events/$dev/$month.jsonl")
+                it.bindLong(2, uptoLine.toLong())
+            }
         }
 
     // -- samples (folded view) -------------------------------------------

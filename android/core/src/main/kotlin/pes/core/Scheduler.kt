@@ -29,24 +29,43 @@ private fun streamIn(config: JsonObject, streamId: String): JsonObject? =
 fun resolveDay(configHistory: List<JsonObject>, streamId: String, localDay: LocalDate): List<ResolvedSample> {
     registerAll()
     val history = configHistory.sortedBy { it.int("version") }
-    val boundaries = history.map { parseUtc(it.str("effective_from")) }
+    val effectiveFrom = history.map { parseUtc(it.str("effective_from")) }
 
-    // Generate per effective segment, in segment order.
+    // Effective intervals per version (§6.1 step 1): at any instant the
+    // version in effect is the *highest* one whose effective_from has passed.
+    // effective_from need not rise with version — a later edit may take
+    // effect before a still-pending one, which then never becomes effective;
+    // assuming monotonicity here would generate the same instant under two
+    // versions and mint a phantom +1 s ping via the collision rule. Nothing
+    // is generated before the earliest effective_from.
+    val points = effectiveFrom.toSortedSet().toList()
+    val intervals = mutableMapOf<Int, MutableList<Pair<Long, Long?>>>()
+    for ((k, start) in points.withIndex()) {
+        val end = points.getOrNull(k + 1)
+        val version = history.indices
+            .filter { effectiveFrom[it] <= start }
+            .maxOf { history[it].int("version") }
+        intervals.getOrPut(version) { mutableListOf() }.add(Pair(start, end))
+    }
+
+    // Generate per effective version, in version order.
     data class Raw(val utc: Long, val dstGap: Boolean, val configV: Int)
     val raw = mutableListOf<Raw>()
-    for ((i, config) in history.withIndex()) {
-        val segStart = boundaries[i]
-        val segEnd = boundaries.getOrNull(i + 1)
+    for (config in history) {
+        val segments = intervals[config.int("version")] ?: continue
         val stream = streamIn(config, streamId) ?: continue
         if (!stream.bool("enabled", true)) continue
         val zone = ZoneId.of(config.str("timezone"))
         val (dayStart, dayEnd) = localDayBounds(localDay, zone)
-        val lo = maxOf(dayStart, segStart)
-        val hi = if (segEnd == null) dayEnd else minOf(dayEnd, segEnd)
-        if (lo >= hi) continue
+        val clipped = segments
+            .map { (lo, hi) -> Pair(maxOf(dayStart, lo), if (hi == null) dayEnd else minOf(dayEnd, hi)) }
+            .filter { (lo, hi) -> lo < hi }
+        if (clipped.isEmpty()) continue
         val generate = getProtocol(stream.obj("protocol").str("type"))
         for (cand in generate(stream.obj("protocol"), stream.str("seed"), localDay, zone)) {
-            if (cand.utc in lo until hi) raw.add(Raw(cand.utc, cand.dstGap, config.int("version")))
+            if (clipped.any { (lo, hi) -> cand.utc in lo until hi }) {
+                raw.add(Raw(cand.utc, cand.dstGap, config.int("version")))
+            }
         }
     }
 

@@ -110,6 +110,14 @@ def _check_protocol(protocol: dict, label: str, errors: list[str]) -> None:
         if not isinstance(v, (int, float)) or isinstance(v, bool) or v <= 0:
             errors.append(f"bad_protocol_param:{label}.{key}")
 
+    def positive_int(key: str) -> None:
+        # Whole minutes only: both cores do integer-second arithmetic on
+        # these, so a float here would silently diverge (or crash) between
+        # languages.
+        v = protocol.get(key)
+        if not isinstance(v, int) or isinstance(v, bool) or v < 1:
+            errors.append(f"bad_protocol_param:{label}.{key}")
+
     if ptype == "poisson":
         positive_number("mean_gap_minutes")
         if "min_gap_minutes" in protocol:
@@ -117,12 +125,12 @@ def _check_protocol(protocol: dict, label: str, errors: list[str]) -> None:
             if not isinstance(v, (int, float)) or isinstance(v, bool) or v < 0:
                 errors.append(f"bad_protocol_param:{label}.min_gap_minutes")
     elif ptype == "stratified":
-        positive_number("interval_minutes")
+        positive_int("interval_minutes")
         v = protocol.get("pings_per_interval")
         if not isinstance(v, int) or isinstance(v, bool) or v < 1:
             errors.append(f"bad_protocol_param:{label}.pings_per_interval")
     elif ptype == "fixed_interval":
-        positive_number("every_minutes")
+        positive_int("every_minutes")
         if not HHMM_RE.match(protocol.get("anchor_local", "")):
             errors.append(f"bad_protocol_param:{label}.anchor_local")
     elif ptype == "fixed_times":

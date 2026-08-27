@@ -668,6 +668,146 @@
       ]
     },
     {
+      "name": "fractional_every_minutes",
+      "note": "whole minutes required: both cores do integer-second arithmetic",
+      "now": "2026-08-21T12:00:00Z",
+      "surveys": [
+        [
+          "thoughts",
+          2
+        ]
+      ],
+      "config": {
+        "version": 7,
+        "base_version": 6,
+        "written_by": "laptop-9c11aa00",
+        "written_at": "2026-08-21T14:05:12Z",
+        "effective_from": "2026-08-21T15:00:00Z",
+        "timezone": "America/Los_Angeles",
+        "defaults": {
+          "snooze_minutes": 10,
+          "max_snoozes": 3,
+          "expiry_minutes": 60,
+          "backlog_hours": 12,
+          "location": "off"
+        },
+        "streams": [
+          {
+            "id": "thoughts",
+            "name": "In-the-moment thoughts v1",
+            "enabled": true,
+            "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+            "protocol": {
+              "type": "fixed_interval",
+              "every_minutes": 7.5,
+              "anchor_local": "09:00"
+            },
+            "quiet_zones": [
+              {
+                "days": [
+                  "mon",
+                  "tue",
+                  "wed",
+                  "thu",
+                  "fri",
+                  "sat",
+                  "sun"
+                ],
+                "from": "23:00",
+                "to": "07:30"
+              }
+            ],
+            "survey": {
+              "id": "thoughts",
+              "version": 2
+            },
+            "full_survey_every_n": 1,
+            "location": "coarse",
+            "overrides": {
+              "expiry_minutes": 30
+            },
+            "notification": {
+              "sound": "default",
+              "vibrate": true
+            }
+          }
+        ]
+      },
+      "expected_errors": [
+        "bad_protocol_param:thoughts.every_minutes"
+      ]
+    },
+    {
+      "name": "fractional_interval_minutes",
+      "note": "whole minutes required: both cores do integer-second arithmetic",
+      "now": "2026-08-21T12:00:00Z",
+      "surveys": [
+        [
+          "thoughts",
+          2
+        ]
+      ],
+      "config": {
+        "version": 7,
+        "base_version": 6,
+        "written_by": "laptop-9c11aa00",
+        "written_at": "2026-08-21T14:05:12Z",
+        "effective_from": "2026-08-21T15:00:00Z",
+        "timezone": "America/Los_Angeles",
+        "defaults": {
+          "snooze_minutes": 10,
+          "max_snoozes": 3,
+          "expiry_minutes": 60,
+          "backlog_hours": 12,
+          "location": "off"
+        },
+        "streams": [
+          {
+            "id": "thoughts",
+            "name": "In-the-moment thoughts v1",
+            "enabled": true,
+            "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+            "protocol": {
+              "type": "stratified",
+              "interval_minutes": 90.5,
+              "pings_per_interval": 2
+            },
+            "quiet_zones": [
+              {
+                "days": [
+                  "mon",
+                  "tue",
+                  "wed",
+                  "thu",
+                  "fri",
+                  "sat",
+                  "sun"
+                ],
+                "from": "23:00",
+                "to": "07:30"
+              }
+            ],
+            "survey": {
+              "id": "thoughts",
+              "version": 2
+            },
+            "full_survey_every_n": 1,
+            "location": "coarse",
+            "overrides": {
+              "expiry_minutes": 30
+            },
+            "notification": {
+              "sound": "default",
+              "vibrate": true
+            }
+          }
+        ]
+      },
+      "expected_errors": [
+        "bad_protocol_param:thoughts.interval_minutes"
+      ]
+    },
+    {
       "name": "bad_timezone",
       "note": "",
       "now": "2026-08-21T12:00:00Z",

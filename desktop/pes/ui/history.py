@@ -127,7 +127,10 @@ class HistoryScreen(ttk.Frame):
             answered = [ev for ev in events if ev["ev"] == "answered"]
             if answered:
                 supersedes = max(answered, key=lambda ev: ev["t"])["t"]
-        self.app.open_answer(sample, supersedes=supersedes)
+        # Editing starts from the current answers, not a blank form
+        # (submitting a blank supersede would wipe them).
+        prefill = row.get("answers") if supersedes else None
+        self.app.open_answer(sample, supersedes=supersedes, prefill=prefill)
 
     def _retract(self) -> None:
         sample = self._selected()

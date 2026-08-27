@@ -105,6 +105,15 @@ private fun checkProtocol(protocol: JsonObject, label: String, errors: MutableLi
         }
     }
 
+    // Whole minutes only: both cores do integer-second arithmetic on these,
+    // so a float here would silently diverge (or crash) between languages.
+    fun positiveInt(key: String) {
+        val v = protocol[key]
+        if (!v.isInt() || (v as JsonPrimitive).content.toLong() < 1) {
+            errors.add("bad_protocol_param:$label.$key")
+        }
+    }
+
     when (ptype) {
         "poisson" -> {
             positiveNumber("mean_gap_minutes")
@@ -114,14 +123,14 @@ private fun checkProtocol(protocol: JsonObject, label: String, errors: MutableLi
             }
         }
         "stratified" -> {
-            positiveNumber("interval_minutes")
+            positiveInt("interval_minutes")
             val v = protocol["pings_per_interval"]
             if (!v.isInt() || (v as JsonPrimitive).content.toLong() < 1) {
                 errors.add("bad_protocol_param:$label.pings_per_interval")
             }
         }
         "fixed_interval" -> {
-            positiveNumber("every_minutes")
+            positiveInt("every_minutes")
             if (!HHMM_RE.matches(protocol.optStr("anchor_local") ?: "")) {
                 errors.add("bad_protocol_param:$label.anchor_local")
             }

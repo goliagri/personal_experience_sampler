@@ -113,6 +113,19 @@ class AndroidNotifier(private val context: Context) : Notifier {
     }
 }
 
+/** Snooze refusal codes (§6.5) as user-facing text. */
+fun snoozeRefusalText(refusal: String): String = when (refusal) {
+    "max_snoozes" -> "Snooze refused: no snoozes left"
+    "near_expiry" -> "Snooze refused: too close to expiry"
+    else -> "Snooze refused: $refusal"
+}
+
+private fun toast(context: Context, message: String) {
+    android.os.Handler(android.os.Looper.getMainLooper()).post {
+        android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
+    }
+}
+
 class ActionReceiver : BroadcastReceiver() {
     companion object {
         const val SNOOZE = "pes.action.SNOOZE"
@@ -127,23 +140,36 @@ class ActionReceiver : BroadcastReceiver() {
         host.post { engine ->
             when (intent.action) {
                 SNOOZE -> {
-                    engine.snooze(sampleId) // refusal leaves the notification up
+                    val refusal = engine.snooze(sampleId)
                     Alarms.schedule(context, engine.nextWake(engine.clock.now()))
+                    // Refusal leaves the notification up; say why.
+                    if (refusal != null) toast(context, snoozeRefusalText(refusal))
                 }
                 SKIP -> engine.skip(sampleId)
-                REPLY -> reply(engine, host.notifier, sampleId, intent)
+                REPLY -> reply(context, engine, host.notifier, sampleId, intent)
             }
             pending.finish()
         }
     }
 
     /** Inline reply: log an `answered` event with `partial: true` and only
-     * the tags field (§10.3). */
-    private fun reply(engine: Engine, notifier: AndroidNotifier, sampleId: String, intent: Intent) {
+     * the tags field (§10.3). An empty or all-invalid reply must not create
+     * an answered event (it would outrank a later expired). */
+    private fun reply(
+        context: Context,
+        engine: Engine,
+        notifier: AndroidNotifier,
+        sampleId: String,
+        intent: Intent,
+    ) {
         val text = RemoteInput.getResultsFromIntent(intent)
             ?.getCharSequence(KEY_REPLY)?.toString() ?: return
         val fieldId = notifier.inlineTagsField(sampleId) ?: return
         val tags = text.trim().split(Regex("\\s+")).filter { it.matches(TAG_RE) }
+        if (tags.isEmpty()) {
+            toast(context, "No valid tags in reply; ping still pending")
+            return
+        }
         engine.answer(
             sampleId,
             buildJsonObject { put(fieldId, JsonArray(tags.map { JsonPrimitive(it) })) },

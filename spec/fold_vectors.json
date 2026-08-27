@@ -1249,6 +1249,91 @@
         "config_version": 1
       },
       "expected_warning_count": 0
+    },
+    {
+      "name": "supersedes_cycle_total",
+      "note": "[H] a supersedes cycle has no root; fold treats every event as one instead of crashing",
+      "expiry_minutes": 60,
+      "files": {
+        "events/phone-a3f2c1d0/2026-08.jsonl": [
+          {
+            "ev": "fired",
+            "t": "2026-08-20T15:00:02Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "config_v": 1,
+            "scheduled": "2026-08-20T15:00:00Z",
+            "test": false
+          },
+          {
+            "ev": "answered",
+            "t": "2026-08-20T15:05:00Z",
+            "dev": "phone-a3f2c1d0",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "survey": {
+              "id": "s",
+              "version": 1
+            },
+            "answers": {
+              "tags": [
+                "work"
+              ]
+            },
+            "supersedes": "2026-08-20T15:06:00Z"
+          }
+        ],
+        "events/laptop-9c11aa00/2026-08.jsonl": [
+          {
+            "ev": "answered",
+            "t": "2026-08-20T15:06:00Z",
+            "dev": "laptop-9c11aa00",
+            "sample": "thoughts|2026-08-20T15:00:00Z",
+            "stream": "thoughts",
+            "survey": {
+              "id": "s",
+              "version": 1
+            },
+            "answers": {
+              "tags": [
+                "late"
+              ]
+            },
+            "supersedes": "2026-08-20T15:05:00Z"
+          }
+        ]
+      },
+      "expected": {
+        "sample": "thoughts|2026-08-20T15:00:00Z",
+        "stream": "thoughts",
+        "scheduled_utc": "2026-08-20T15:00:00Z",
+        "status": "answered",
+        "prior_status": null,
+        "observed": true,
+        "test": false,
+        "snoozes": 0,
+        "fired_on": [
+          "phone-a3f2c1d0"
+        ],
+        "answered_on": "laptop-9c11aa00",
+        "answered_at": "2026-08-20T15:05:00Z",
+        "latency_s": 300,
+        "late": false,
+        "partial": false,
+        "survey_id": "s",
+        "survey_version": 1,
+        "answers": {
+          "tags": [
+            "late"
+          ]
+        },
+        "loc": null,
+        "suppressed_reason": null,
+        "duplicate_answers": 1,
+        "config_version": 1
+      },
+      "expected_warning_count": 0
     }
   ]
 }

@@ -155,7 +155,10 @@ class DriveStore(
             }
             val found = children(parent, name).filter { it.str("mimeType") == FOLDER_MIME }
             parent = when {
-                found.isNotEmpty() -> found.first().str("id")
+                // Duplicates can appear (two devices creating the folder
+                // concurrently); every device must pick the same one, so
+                // choose deterministically by lowest file ID.
+                found.isNotEmpty() -> found.minBy { it.str("id") }.str("id")
                 create -> createFolder(name, parent)
                 else -> return null
             }
@@ -187,8 +190,10 @@ class DriveStore(
         }
         val found = children(parent, parts.last()).filter { it.str("mimeType") != FOLDER_MIME }
         if (found.isEmpty()) return null
-        cache(key, found.first().str("id"))
-        return found.first()
+        // Same-name duplicates: deterministic pick (lowest ID) on every device.
+        val chosen = found.minBy { it.str("id") }
+        cache(key, chosen.str("id"))
+        return chosen
     }
 
     // -- CloudStore interface ---------------------------------------------

@@ -208,20 +208,32 @@ class App:
         else:
             self.open_answer(sample_id)
 
-    def open_answer(self, sample_id: str, supersedes: str | None = None) -> None:
+    def open_answer(
+        self,
+        sample_id: str,
+        supersedes: str | None = None,
+        prefill: dict | None = None,
+    ) -> None:
         self.answer_open = True
-        window = AnswerWindow(self, sample_id, supersedes=supersedes)
+        window = AnswerWindow(self, sample_id, supersedes=supersedes, prefill=prefill)
+        self._active_answer = window
         window.protocol("WM_DELETE_WINDOW", lambda: self._answer_closed(window))
         window.bind("<Destroy>", lambda e: self._answer_closed(window) if e.widget is window else None)
 
     def _answer_closed(self, window) -> None:
+        # Single drain point: however the window went away (submit, skip,
+        # snooze, Escape, or the close button), queued pings are presented
+        # next — closing without submitting must not strand them.
+        if getattr(self, "_active_answer", None) is not window:
+            return
+        self._active_answer = None
         self.answer_open = False
         if window.winfo_exists():
             window.destroy()
+        self.show_next_queued()
 
     def show_next_queued(self) -> None:
-        self.answer_open = False
-        if self.ping_queue:
+        if not self.answer_open and self.ping_queue:
             self.open_answer(self.ping_queue.pop(0))
 
     # -- tick loop --------------------------------------------------------
@@ -235,6 +247,15 @@ class App:
 
     @staticmethod
     def _guess_timezone() -> str:
+        try:
+            # Cross-platform (the only reliable IANA name source on Windows).
+            from tzlocal import get_localzone_name
+
+            name = get_localzone_name()
+            if name:
+                return name
+        except Exception:  # noqa: BLE001, S110 - optional dependency probing
+            pass
         try:
             tzfile = Path("/etc/timezone")
             if tzfile.is_file():

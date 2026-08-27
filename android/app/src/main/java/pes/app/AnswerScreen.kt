@@ -57,13 +57,35 @@ data class AnswerData(
     val suggestions: Map<String, List<String>>, // fieldId -> recent tags
 )
 
-fun answerData(engine: Engine, sampleId: String): AnswerData? {
+/** The Answer screen's load outcome: never silently blank — a missing
+ * stream/survey or a loader crash renders as a message instead. */
+sealed class AnswerLoad {
+    data object Loading : AnswerLoad()
+    data class Failed(val message: String) : AnswerLoad()
+    data class Ready(val data: AnswerData) : AnswerLoad()
+}
+
+fun answerLoad(engine: Engine, sampleId: String): AnswerLoad = try {
+    answerData(engine, sampleId)
+} catch (e: Exception) {
+    AnswerLoad.Failed("Could not load this ping: $e")
+}
+
+private fun answerData(engine: Engine, sampleId: String): AnswerLoad {
     val streamId = sampleId.substringBefore("|")
     val scheduled = parseUtc(sampleId.substringAfter("|"))
     val stream = engine.streamConfig(streamId, scheduled)
-        ?: engine.streamConfig(streamId, engine.clock.now()) ?: return null
+        ?: engine.streamConfig(streamId, engine.clock.now())
+        ?: return AnswerLoad.Failed(
+            "Stream '$streamId' is not in this device's config yet." +
+                " Run Sync now in Settings, then reopen this ping."
+        )
     val ref = stream.obj("survey")
-    val survey = engine.db.survey(ref.str("id"), ref.int("version")) ?: return null
+    val survey = engine.db.survey(ref.str("id"), ref.int("version"))
+        ?: return AnswerLoad.Failed(
+            "Survey ${ref.str("id")}@${ref.int("version")} has not synced to" +
+                " this device yet. Run Sync now in Settings, then reopen this ping."
+        )
     val fields = presentedFields(survey, engine.isFullSurvey(sampleId))
     val now = engine.clock.now()
     val expiryS = engine.effectiveSettings(streamId, scheduled).int("expiry_minutes") * 60L
@@ -74,15 +96,17 @@ fun answerData(engine: Engine, sampleId: String): AnswerData? {
         val vocab = f.optStr("vocab") ?: "${survey.str("id")}.${f.str("id")}"
         f.str("id") to engine.db.suggestTags(vocab, "", limit = 12)
     }
-    return AnswerData(
-        streamName = stream.str("name"),
-        scheduled = scheduled,
-        scheduledLabel = localDateTime(engine, scheduled),
-        late = late,
-        lateAgo = if (agoH > 0) "$agoH h ago" else "$agoM min ago",
-        fields = fields,
-        status = engine.db.sampleRow(sampleId)?.str("status") ?: "pending",
-        suggestions = suggestions,
+    return AnswerLoad.Ready(
+        AnswerData(
+            streamName = stream.str("name"),
+            scheduled = scheduled,
+            scheduledLabel = localDateTime(engine, scheduled),
+            late = late,
+            lateAgo = if (agoH > 0) "$agoH h ago" else "$agoM min ago",
+            fields = fields,
+            status = engine.db.sampleRow(sampleId)?.str("status") ?: "pending",
+            suggestions = suggestions,
+        )
     )
 }
 
@@ -96,13 +120,30 @@ fun answerData(engine: Engine, sampleId: String): AnswerData? {
 fun AnswerScreen(host: EngineHost, sampleId: String, fromBacklog: Boolean, onDone: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val data by produceState<AnswerData?>(null, sampleId) {
-        value = host.withEngine { answerData(it, sampleId) }
+    val load by produceState<AnswerLoad>(AnswerLoad.Loading, sampleId) {
+        value = host.withEngine { answerLoad(it, sampleId) }
     }
-    val d = data ?: return
-    val values = remember { mutableStateMapOf<String, String>() }
-    val multi = remember { mutableStateMapOf<String, Set<String>>() }
-    var errors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    val d = when (val l = load) {
+        is AnswerLoad.Loading -> {
+            Text("Loading…", Modifier.padding(16.dp))
+            return
+        }
+        is AnswerLoad.Failed -> {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Can't answer this ping", style = MaterialTheme.typography.titleMedium)
+                Text(l.message, color = MaterialTheme.colorScheme.error)
+                Button(onClick = onDone) { Text("Back") }
+            }
+            return
+        }
+        is AnswerLoad.Ready -> l.data
+    }
+    // Keyed on the sample: navigating to a different ping must start from a
+    // clean form, not inherit the previous one's half-typed values.
+    val values = remember(sampleId) { mutableStateMapOf<String, String>() }
+    val multi = remember(sampleId) { mutableStateMapOf<String, Set<String>>() }
+    var errors by remember(sampleId) { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var notice by remember(sampleId) { mutableStateOf<String?>(null) }
     val firstTagsFocus = remember { FocusRequester() }
 
     fun collect(): Pair<JsonObject, Map<String, String>> {
@@ -188,11 +229,12 @@ fun AnswerScreen(host: EngineHost, sampleId: String, fromBacklog: Boolean, onDon
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = {
                     scope.launch {
-                        host.withEngine {
-                            it.snooze(sampleId)
+                        val refusal = host.withEngine {
+                            val r = it.snooze(sampleId)
                             Alarms.schedule(context, it.nextWake(it.clock.now()))
+                            r
                         }
-                        onDone()
+                        if (refusal == null) onDone() else notice = snoozeRefusalText(refusal)
                     }
                 }) { Text("Snooze") }
                 OutlinedButton(onClick = {
@@ -202,6 +244,7 @@ fun AnswerScreen(host: EngineHost, sampleId: String, fromBacklog: Boolean, onDon
                     }
                 }) { Text("Skip") }
             }
+            notice?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
 
         for ((i, f) in d.fields.withIndex()) {

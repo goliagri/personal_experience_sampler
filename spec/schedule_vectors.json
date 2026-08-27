@@ -360,8 +360,7 @@
               "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
               "protocol": {
                 "type": "poisson",
-                "mean_gap_minutes": 90,
-                "min_gap_minutes": 15
+                "mean_gap_minutes": 90
               },
               "quiet_zones": [],
               "survey": {
@@ -382,25 +381,25 @@
           "index": 0
         },
         {
-          "scheduled_utc": "2026-08-20T07:43:53Z",
+          "scheduled_utc": "2026-08-20T07:30:49Z",
           "suppressed": null,
           "config_v": 1,
           "index": 1
         },
         {
-          "scheduled_utc": "2026-08-20T14:24:38Z",
+          "scheduled_utc": "2026-08-20T14:11:34Z",
           "suppressed": null,
           "config_v": 1,
           "index": 2
         },
         {
-          "scheduled_utc": "2026-08-20T15:57:00Z",
+          "scheduled_utc": "2026-08-20T15:43:56Z",
           "suppressed": null,
           "config_v": 1,
           "index": 3
         },
         {
-          "scheduled_utc": "2026-08-20T18:54:34Z",
+          "scheduled_utc": "2026-08-20T18:41:30Z",
           "suppressed": null,
           "config_v": 1,
           "index": 4
@@ -870,6 +869,163 @@
           "suppressed": null,
           "config_v": 2,
           "index": 33
+        }
+      ]
+    },
+    {
+      "name": "non_monotonic_effective_from",
+      "note": "[H] v3 effective before v2: highest-effective-version rule; v2 never in effect, and identical v1/v3 protocols produce no duplicate instants",
+      "config_history": [
+        {
+          "version": 1,
+          "effective_from": "2026-01-01T00:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "p",
+              "name": "p",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "poisson",
+                "mean_gap_minutes": 90,
+                "min_gap_minutes": 15
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        },
+        {
+          "version": 2,
+          "effective_from": "2026-08-21T00:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "p",
+              "name": "p",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "poisson",
+                "mean_gap_minutes": 45,
+                "min_gap_minutes": 15
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        },
+        {
+          "version": 3,
+          "effective_from": "2026-08-20T20:00:00Z",
+          "timezone": "America/Los_Angeles",
+          "defaults": {
+            "snooze_minutes": 10,
+            "max_snoozes": 3,
+            "expiry_minutes": 60,
+            "backlog_hours": 12
+          },
+          "streams": [
+            {
+              "id": "p",
+              "name": "p",
+              "enabled": true,
+              "seed": "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f",
+              "protocol": {
+                "type": "poisson",
+                "mean_gap_minutes": 90,
+                "min_gap_minutes": 15
+              },
+              "quiet_zones": [],
+              "survey": {
+                "id": "s",
+                "version": 1
+              }
+            }
+          ]
+        }
+      ],
+      "stream": "p",
+      "local_day": "2026-08-20",
+      "expected": [
+        {
+          "scheduled_utc": "2026-08-20T07:28:53Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 0
+        },
+        {
+          "scheduled_utc": "2026-08-20T07:43:53Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 1
+        },
+        {
+          "scheduled_utc": "2026-08-20T14:24:38Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 2
+        },
+        {
+          "scheduled_utc": "2026-08-20T15:57:00Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 3
+        },
+        {
+          "scheduled_utc": "2026-08-20T18:54:34Z",
+          "suppressed": null,
+          "config_v": 1,
+          "index": 4
+        },
+        {
+          "scheduled_utc": "2026-08-21T00:31:25Z",
+          "suppressed": null,
+          "config_v": 3,
+          "index": 5
+        },
+        {
+          "scheduled_utc": "2026-08-21T02:38:51Z",
+          "suppressed": null,
+          "config_v": 3,
+          "index": 6
+        },
+        {
+          "scheduled_utc": "2026-08-21T05:05:44Z",
+          "suppressed": null,
+          "config_v": 3,
+          "index": 7
+        },
+        {
+          "scheduled_utc": "2026-08-21T06:28:47Z",
+          "suppressed": null,
+          "config_v": 3,
+          "index": 8
+        },
+        {
+          "scheduled_utc": "2026-08-21T06:48:54Z",
+          "suppressed": null,
+          "config_v": 3,
+          "index": 9
         }
       ]
     },

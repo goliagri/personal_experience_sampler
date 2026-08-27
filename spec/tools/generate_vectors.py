@@ -234,8 +234,13 @@ def gen_schedules() -> None:
                             found.isoformat(),
                             "[H] pair closer than min_gap across 00:00Z is NOT shifted"))
 
-    cases.append(sched_case("poisson_local_day_two_utc_days", [cfg_mg], "p", "2026-08-20",
-                            "[H] LA local day spans two UTC days; both generated, filtered to bounds"))
+    cfg_la_plain = base_config([stream("p", poisson)])
+    c = sched_case("poisson_local_day_two_utc_days", [cfg_la_plain], "p", "2026-08-20",
+                   "[H] LA local day spans two UTC days; both generated, filtered to bounds")
+    days = {parse_utc(e["scheduled_utc"]) // 86400 for e in c["expected"]}
+    assert len(days) == 2, "seam case must draw from both UTC days"
+    assert c["expected"] != cases[0]["expected"], "must differ from the UTC-timezone case"
+    cases.append(c)
 
     # [H] config change mid-day; day D+1 unaffected (re-seeding independence).
     cfg_v1 = base_config([stream("p", poisson_mg)], version=1)
@@ -249,6 +254,23 @@ def gen_schedules() -> None:
         "re-seeding independence violated"
     cases.append(sched_case("poisson_day_after_config_change", [cfg_v1, cfg_v2], "p", "2026-08-21",
                             "[H] day D+1 fully under v2, identical to v2-only generation"))
+
+    # [H] effective_from need not rise with version: v3 (written later) takes
+    # effect before v2's still-pending change, so v2 never becomes effective.
+    # The effective version at any instant is the highest one whose
+    # effective_from has passed; nothing may be generated under two versions
+    # (that would mint phantom +1 s pings via the collision rule).
+    cfg_nm2 = base_config(
+        [stream("p", {"type": "poisson", "mean_gap_minutes": 45, "min_gap_minutes": 15})],
+        version=2, effective="2026-08-21T00:00:00Z")
+    cfg_nm3 = base_config([stream("p", poisson_mg)], version=3, effective="2026-08-20T20:00:00Z")
+    c = sched_case("non_monotonic_effective_from", [cfg_v1, cfg_nm2, cfg_nm3], "p", "2026-08-20",
+                   "[H] v3 effective before v2: highest-effective-version rule; v2 never "
+                   "in effect, and identical v1/v3 protocols produce no duplicate instants")
+    only_v1 = [fmt_utc(r.scheduled_utc) for r in resolve_day([cfg_v1], "p", date(2026, 8, 20))]
+    assert [e["scheduled_utc"] for e in c["expected"]] == only_v1, "phantom +1 s pings generated"
+    assert {e["config_v"] for e in c["expected"]} == {1, 3}
+    cases.append(c)
 
     cfg_seed_b = base_config([stream("p", poisson_mg, seed=SEED_B)])
     c2 = sched_case("poisson_seed_edit", [cfg_seed_b], "p", "2026-08-20",
@@ -513,6 +535,19 @@ def gen_folds() -> None:
     assert c["expected"]["status"] == "answered"
     cases.append(c)
 
+    # Corrupt supersedes cycle: no chain root exists. The fold must stay
+    # total — every event becomes a root; the earliest-t chain still wins and
+    # the other chain counts as a duplicate.
+    c = fold_case("supersedes_cycle_total",
+        {FP: [fired, answered(P, "2026-08-20T15:05:00Z", supersedes="2026-08-20T15:06:00Z")],
+         FL: [answered(L, "2026-08-20T15:06:00Z", answers={"tags": ["late"]},
+                       supersedes="2026-08-20T15:05:00Z")]},
+        note="[H] a supersedes cycle has no root; fold treats every event as one instead of crashing")
+    assert c["expected"]["status"] == "answered"
+    assert c["expected"]["answered_at"] == "2026-08-20T15:05:00Z"
+    assert c["expected"]["duplicate_answers"] == 1
+    cases.append(c)
+
     write(SPEC / "fold_vectors.json", {"cases": cases})
 
 
@@ -694,6 +729,14 @@ def gen_config_validation() -> None:
         variant(lambda d: d.update(effective_from="2026-08-21T11:00:00Z"), "past_effective_from"),
         variant(lambda d: d["streams"][0]["quiet_zones"][0].update({"from": "25:00"}), "bad_hhmm"),
         variant(lambda d: d["streams"][0].update(id="Bad-Id"), "bad_stream_id_charset"),
+        variant(lambda d: d["streams"][0].update(
+                    protocol={"type": "fixed_interval", "every_minutes": 7.5, "anchor_local": "09:00"}),
+                "fractional_every_minutes",
+                "whole minutes required: both cores do integer-second arithmetic"),
+        variant(lambda d: d["streams"][0].update(
+                    protocol={"type": "stratified", "interval_minutes": 90.5, "pings_per_interval": 2}),
+                "fractional_interval_minutes",
+                "whole minutes required: both cores do integer-second arithmetic"),
         variant(lambda d: d.update(timezone="Not/AZone"), "bad_timezone"),
         # valid edges
         variant(lambda d: None, "valid_unchanged"),

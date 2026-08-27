@@ -59,6 +59,10 @@ private fun answerChains(answered: List<JsonObject>): Triple<JsonObject?, JsonOb
     if (answered.isEmpty()) return Triple(null, null, emptyList())
     val existingTs = answered.map { it.str("t") }.toSet()
     val roots = answered.filter { it.optStr("supersedes")?.let { s -> s !in existingTs } ?: true }
+        // Corrupt data: every event supersedes another (a cycle). The fold
+        // must stay total — treat all events as chain roots rather than
+        // crash every future refold of this sample.
+        .ifEmpty { answered }
 
     fun effective(root: JsonObject): JsonObject {
         var current = root

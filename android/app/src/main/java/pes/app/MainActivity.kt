@@ -165,6 +165,7 @@ class MainActivity : ComponentActivity() {
 fun HomeScreen(host: EngineHost, refresh: Int, bump: () -> Unit, push: (Screen) -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var notice by androidx.compose.runtime.remember { mutableStateOf<String?>(null) }
     fun act(block: (Engine) -> Unit) {
         scope.launch {
             host.withEngine(block)
@@ -188,7 +189,15 @@ fun HomeScreen(host: EngineHost, refresh: Int, bump: () -> Unit, push: (Screen) 
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { push(Screen.Answer(sampleId, fromBacklog = false)) }) { Text("Answer") }
                         OutlinedButton(onClick = {
-                            act { it.snooze(sampleId); Alarms.schedule(context, it.nextWake(it.clock.now())) }
+                            scope.launch {
+                                val refusal = host.withEngine {
+                                    val r = it.snooze(sampleId)
+                                    Alarms.schedule(context, it.nextWake(it.clock.now()))
+                                    r
+                                }
+                                notice = refusal?.let { snoozeRefusalText(it) }
+                                bump()
+                            }
                         }) { Text("Snooze") }
                         OutlinedButton(onClick = { act { it.skip(sampleId) } }) { Text("Skip") }
                     }
@@ -196,6 +205,7 @@ fun HomeScreen(host: EngineHost, refresh: Int, bump: () -> Unit, push: (Screen) 
             }
         }
         if (d.active.isEmpty()) Text("No active ping.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        notice?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
         if (d.backlogCount > 0) {
             TextButton(onClick = { push(Screen.Backlog) }) { Text("Backlog: ${d.backlogCount} expired ping(s)") }

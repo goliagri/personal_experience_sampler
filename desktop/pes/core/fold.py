@@ -63,6 +63,11 @@ def _answer_chains(answered: list[dict]) -> tuple[dict | None, dict | None, list
         return None, None, []
     existing_ts = {ev["t"] for ev in answered}
     roots = [ev for ev in answered if not ev.get("supersedes") or ev["supersedes"] not in existing_ts]
+    if not roots:
+        # Corrupt data: every event supersedes another (a cycle). The fold
+        # must stay total — treat all events as chain roots rather than crash
+        # every future refold of this sample.
+        roots = list(answered)
 
     def effective(root: dict) -> dict:
         current = root
