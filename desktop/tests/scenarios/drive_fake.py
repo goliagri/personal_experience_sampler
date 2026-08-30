@@ -94,6 +94,11 @@ class FakeDrive:
         if url.startswith("https://www.googleapis.com/drive/v3/files/"):
             file_id = url.rsplit("/", 1)[1]
             record = self.files.get(file_id)
+            if method == "DELETE":
+                if record is None:
+                    return FakeResponse(404, body={"error": "not found"})
+                del self.files[file_id]
+                return FakeResponse(204)
             if method == "GET":
                 if record is None or record["trashed"]:
                     return FakeResponse(404, body={"error": "not found"})
@@ -112,7 +117,20 @@ class FakeDrive:
             "size": str(len(record["content"])),
         }
 
+    def _live(self, file_id: str) -> bool:
+        record = self.files.get(file_id)
+        return record is not None and not record["trashed"]
+
+    def trash(self, file_id: str) -> None:
+        """Trash a file, or a folder with everything under it (as Drive does)."""
+        self.files[file_id]["trashed"] = True
+        for f in list(self.files.values()):
+            if file_id in f["parents"]:
+                self.trash(f["id"])
+
     def _create(self, meta: dict, content: bytes) -> FakeResponse:
+        if any(not self._live(p) for p in meta.get("parents", [])):
+            return FakeResponse(404, body={"error": "parent not found"})
         file_id = self.add(
             meta["name"],
             meta.get("mimeType", "application/octet-stream"),
@@ -133,6 +151,8 @@ class FakeDrive:
                 parent = m.group(1)
             elif clause != "trashed = false":
                 raise AssertionError(f"FakeDrive: unsupported clause {clause!r}")
+        if parent is not None and not self._live(parent):
+            return FakeResponse(404, body={"error": "parent not found"})
         matches = [
             self._meta(f)
             for f in self.files.values()

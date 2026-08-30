@@ -39,6 +39,8 @@ class RecordingStore(private val inner: CloudStore) : CloudStore {
     override fun list(prefix: String): List<String> = inner.list(prefix)
 
     override fun metadata(path: String): CloudMeta? = inner.metadata(path)
+
+    override fun delete(path: String) = inner.delete(path)
 }
 
 const val SEED = "8f3a9c1e5b2d4a6c8e0f1a2b3c4d5e6f"

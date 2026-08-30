@@ -11,11 +11,20 @@
  */
 package pes
 
+import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.security.MessageDigest
+import java.time.DayOfWeek
+import java.time.Instant
+import java.time.LocalTime
+import java.time.ZoneId
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import pes.core.columnsJson
 import pes.core.exportCsv
 import pes.core.fmtUtc
@@ -30,6 +39,9 @@ import pes.store.parseJson
 val TERMINAL = setOf("answered", "skipped", "expired", "retracted", "suppressed")
 
 const val APP_VERSION = "0.3.0"
+const val SNAPSHOT_KEEP = 12 // §9: 12 weekly + 12 monthly
+const val PRIMARY_STALE_S = 14L * 86400 // §9: a primary silent this long can be replaced
+const val FORMAT_VERSION = 1
 
 class SyncResult {
     val conflicts = mutableListOf<String>()
@@ -39,6 +51,28 @@ class SyncResult {
     var changedStreams: List<String> = emptyList()
     var appliedConfig: Int? = null
     var backfilled = 0
+    var role = ""
+    var snapshot: String? = null
+    var snapshotMonthly: String? = null
+}
+
+class RestoreResult {
+    val uploaded = mutableListOf<String>()
+    val restored = mutableListOf<String>()
+    val docs = mutableListOf<String>()
+    lateinit var sync: SyncResult
+}
+
+private fun jsonl(lines: List<String>): ByteArray =
+    (lines.joinToString("\n") + "\n").toByteArray(Charsets.UTF_8)
+
+/** Local date (YYYY-MM-DD) of the most recent Sunday 03:00 <= now. */
+fun lastSunday0300(now: Long, timezone: String): String {
+    val local = Instant.ofEpochSecond(now).atZone(ZoneId.of(timezone))
+    val daysSinceSunday = if (local.dayOfWeek == DayOfWeek.SUNDAY) 0L else local.dayOfWeek.value.toLong()
+    var sunday = local.toLocalDate().minusDays(daysSinceSunday)
+    if (daysSinceSunday == 0L && local.toLocalTime() < LocalTime.of(3, 0)) sunday = sunday.minusDays(7)
+    return sunday.toString()
 }
 
 /** json.dumps(doc, indent=2) + "\n", matching the Python `_dumps`. */
@@ -80,10 +114,71 @@ class Syncer(
         uploadOwnMonths()
         importOtherDevices(result)
         regenerateExports(result)
-        updateDeviceDoc()
+        updateDeviceDoc(result)
+        snapshot(result)
         result.backfilled = engine.backfillNow().size
         db.kvSet("sync_meta", "last_sync", fmtUtc(engine.clock.now()))
         return result
+    }
+
+    // -- restore (§8.6) ---------------------------------------------------
+
+    /**
+     * Rebuild a lost or damaged cloud folder from this device's cache, then
+     * run a normal sync. Creates files only: another device's cloud file is
+     * never overwritten — lines it lacks go to `restored/`.
+     */
+    fun restore(): RestoreResult {
+        val result = RestoreResult()
+        val dev = engine.deviceId
+        val cloudFiles = store.list("events").toSet()
+        for (source in db.eventFiles()) {
+            if (!source.startsWith("events/")) continue // restored/ fragments are re-derived below
+            val (_, fileDev, name) = source.split("/")
+            val lines = db.fileLines(source)
+            val data = jsonl(lines)
+            if (source !in cloudFiles) {
+                if (store.putIfAbsent(source, data)) result.uploaded.add(source)
+                continue
+            }
+            val present = (store.get(source) ?: ByteArray(0)).decodeToString().split("\n").toSet()
+            val extra = lines.filter { it !in present }
+            if (extra.isEmpty()) continue
+            if (fileDev == dev) {
+                // Own log: authoritative, and the normal upload path
+                // overwrites it wholesale anyway.
+                store.put(source, data)
+                result.uploaded.add(source)
+            } else {
+                val path = "restored/$dev/$fileDev/$name"
+                store.put(path, jsonl(extra))
+                result.restored.add(path)
+            }
+        }
+
+        for (doc in db.configHistory()) {
+            val path = "config/history/config_v%04d.json".format(doc.int("version"))
+            if (store.putIfAbsent(path, dumpsDoc(doc))) result.docs.add(path)
+        }
+        db.latestConfig()?.let {
+            if (store.putIfAbsent("config/current.json", dumpsDoc(it))) result.docs.add("config/current.json")
+        }
+        for ((key, doc) in db.allSurveys()) {
+            val path = "surveys/${key.first}/v${key.second}.json"
+            if (store.putIfAbsent(path, dumpsDoc(doc))) result.docs.add(path)
+        }
+        if (ensureManifest()) result.docs.add("manifest.json")
+        result.sync = sync()
+        return result
+    }
+
+    private fun ensureManifest(): Boolean {
+        val doc = buildJsonObject {
+            put("format_version", JsonPrimitive(FORMAT_VERSION))
+            put("created_at", JsonPrimitive(fmtUtc(engine.clock.now())))
+            put("install_id", JsonPrimitive(engine.deviceId))
+        }
+        return store.putIfAbsent("manifest.json", dumpsDoc(doc))
     }
 
     /** Pre-notification check (§8.4): config + state metadata only. */
@@ -332,14 +427,19 @@ class Syncer(
 
     // -- step 5: device document ------------------------------------------
 
-    private fun updateDeviceDoc() {
+    private fun updateDeviceDoc(result: SyncResult) {
         val dev = engine.deviceId
         val now = engine.clock.now()
-        var role = db.kvGet("device", "role")
-        if (role == null) {
-            role = if (noOtherPrimary(dev)) "primary" else ""
-            db.kvSet("device", "role", role)
-        }
+        val others = otherDevices(dev)
+        var role = db.kvGet("device", "role") ?: ""
+        // §9: claim primary when no live primary exists (first run, or the
+        // previous primary has been silent for 14 days). Two simultaneous
+        // claimants are resolved by lexicographic device_id at the next
+        // sync that sees both.
+        if (role != "primary" && others.none { isLivePrimary(it, now) }) role = "primary"
+        if (role == "primary" && others.any { isLivePrimary(it, now) && it.str("device_id") < dev }) role = ""
+        db.kvSet("device", "role", role)
+        result.role = role
         val doc = kotlinx.serialization.json.buildJsonObject {
             put("device_id", kotlinx.serialization.json.JsonPrimitive(dev))
             put("name", kotlinx.serialization.json.JsonPrimitive(db.kvGet("device", "name") ?: dev))
@@ -358,14 +458,53 @@ class Syncer(
             if (unchanged && now - parseUtc(prev.str("last_sync")) < 3600) return
         }
         store.put(path, dumpsDoc(doc))
+        ensureManifest()
     }
 
-    private fun noOtherPrimary(ownDev: String): Boolean {
-        for (path in store.list("devices")) {
-            val raw = store.get(path) ?: continue
-            val doc = parseJson(raw.decodeToString())
-            if (doc.optStr("device_id") != ownDev && doc.optStr("role") == "primary") return false
+    private fun otherDevices(ownDev: String): List<JsonObject> =
+        store.list("devices").mapNotNull { path ->
+            store.get(path)?.let { parseJson(it.decodeToString()) }
+        }.filter { doc -> doc.optStr("device_id").let { it != null && it != ownDev } }
+
+    private fun isLivePrimary(doc: JsonObject, now: Long): Boolean =
+        doc.optStr("role") == "primary" &&
+            now - parseUtc(doc.optStr("last_sync") ?: "1970-01-01T00:00:00Z") < PRIMARY_STALE_S
+
+    // -- step 5b: snapshots (§9) -----------------------------------------
+
+    /**
+     * Primary only: zip the folder on the first sync after Sunday 03:00
+     * local, promote the month's first weekly zip to monthly, prune to
+     * 12 + 12. Keyed by the Sunday's date, so retries are idempotent.
+     */
+    private fun snapshot(result: SyncResult) {
+        if (db.kvGet("device", "role") != "primary") return
+        val config = db.latestConfig() ?: return
+        val sunday = lastSunday0300(engine.clock.now(), config.str("timezone"))
+        val weekly = "snapshots/weekly/$sunday.zip"
+        if (store.metadata(weekly) == null) {
+            val data = zipFolder()
+            if (store.putIfAbsent(weekly, data)) result.snapshot = weekly
+            val monthly = "snapshots/monthly/${sunday.take(7)}.zip"
+            if (store.putIfAbsent(monthly, data)) result.snapshotMonthly = monthly
         }
-        return true
+        for (prefix in listOf("snapshots/weekly", "snapshots/monthly")) {
+            val zips = store.list(prefix).filter { it.endsWith(".zip") }.sorted()
+            for (path in zips.dropLast(SNAPSHOT_KEEP)) store.delete(path)
+        }
+    }
+
+    private fun zipFolder(): ByteArray {
+        val buf = ByteArrayOutputStream()
+        ZipOutputStream(buf).use { zip ->
+            for (path in store.list("")) {
+                if (path.startsWith("snapshots/")) continue
+                val data = store.get(path) ?: continue
+                zip.putNextEntry(ZipEntry(path).apply { time = 315532800000L }) // 1980-01-01, deterministic
+                zip.write(data)
+                zip.closeEntry()
+            }
+        }
+        return buf.toByteArray()
     }
 }

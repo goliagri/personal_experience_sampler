@@ -3,10 +3,12 @@ package pes.app
 import android.content.Context
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import androidx.work.workDataOf
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import java.io.File
@@ -36,12 +38,23 @@ class SyncWorker(context: Context, params: WorkerParameters) : Worker(context, p
             val engine = Engine(db, deviceId, notifier)
             notifier.engine = engine
             val store = DriveStore(AuthorizedSession(GmsTokenSource(context)), db)
-            val result = Syncer(engine, store).sync()
+            val syncer = Syncer(engine, store)
+            var prefix = ""
+            val result = if (inputData.getBoolean(KEY_RESTORE, false)) {
+                // §8.6: rebuild the cloud folder from the local cache first.
+                val restored = syncer.restore()
+                val n = restored.uploaded.size + restored.restored.size + restored.docs.size
+                prefix = "restored $n file(s); "
+                restored.sync
+            } else {
+                syncer.sync()
+            }
             db.kvSet("sync_meta", "last_sync_error", "")
             db.kvSet(
                 "sync_meta", "last_sync_result",
-                "imported ${result.imported.size} file(s), exported ${result.exported.size}," +
+                prefix + "imported ${result.imported.size} file(s), exported ${result.exported.size}," +
                     " backfilled ${result.backfilled}" +
+                    (if (result.snapshot != null) ", snapshot taken" else "") +
                     (if (result.warnings.isEmpty()) "" else "; ${result.warnings.joinToString("; ")}"),
             )
             // Imported events may change pending samples; move the alarm.
@@ -57,6 +70,8 @@ class SyncWorker(context: Context, params: WorkerParameters) : Worker(context, p
     }
 
     companion object {
+        private const val KEY_RESTORE = "restore"
+
         fun ensurePeriodic(context: Context) {
             val request = PeriodicWorkRequestBuilder<SyncWorker>(1, TimeUnit.HOURS)
                 .setConstraints(
@@ -68,9 +83,24 @@ class SyncWorker(context: Context, params: WorkerParameters) : Worker(context, p
             )
         }
 
+        /** Unique name of manual runs so Settings can observe their state. */
+        const val MANUAL_WORK = "pes-sync-manual"
+
         fun syncNow(context: Context) {
-            WorkManager.getInstance(context)
-                .enqueue(OneTimeWorkRequestBuilder<SyncWorker>().build())
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                MANUAL_WORK, ExistingWorkPolicy.KEEP,
+                OneTimeWorkRequestBuilder<SyncWorker>().build(),
+            )
+        }
+
+        /** Restore procedure (§8.6) followed by a normal sync. */
+        fun restoreNow(context: Context) {
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                MANUAL_WORK, ExistingWorkPolicy.KEEP,
+                OneTimeWorkRequestBuilder<SyncWorker>()
+                    .setInputData(workDataOf(KEY_RESTORE to true))
+                    .build(),
+            )
         }
     }
 }

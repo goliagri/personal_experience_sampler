@@ -11,7 +11,11 @@ folder backend, ``modifiedTime`` for Drive later), remembered in ``sync_meta``.
 from __future__ import annotations
 
 import hashlib
+import io
 import json
+import zipfile
+from datetime import UTC, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 from .core.export import columns_json, export_csv
 from .core.timeutil import fmt_utc, parse_utc
@@ -20,14 +24,18 @@ from .store.cloud import CloudStore
 
 TERMINAL = {"answered", "skipped", "expired", "retracted", "suppressed"}
 
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.3.0"
+SNAPSHOT_KEEP = 12  # §9: 12 weekly + 12 monthly
+PRIMARY_STALE_S = 14 * 86400  # §9: a primary silent this long can be replaced
+FORMAT_VERSION = 1
 
 
 class Syncer:
-    def __init__(self, engine: Engine, store: CloudStore):
+    def __init__(self, engine: Engine, store: CloudStore, platform: str = "desktop"):
         self.engine = engine
         self.db = engine.db
         self.store = store
+        self.platform = platform
 
     # -- helpers ----------------------------------------------------------
 
@@ -56,9 +64,68 @@ class Syncer:
         self._import_other_devices(result)
         self._regenerate_exports(result)
         self._update_device_doc(result)
+        self._snapshot(result)
         result["backfilled"] = len(self.engine.backfill_now())
         self.db.kv_set("sync_meta", "last_sync", fmt_utc(self.engine.clock.now()))
         return result
+
+    # -- restore (§8.6) ---------------------------------------------------
+
+    def restore(self) -> dict:
+        """Rebuild a lost or damaged cloud folder from this device's cache,
+        then run a normal sync. Creates files only: another device's cloud
+        file is never overwritten — lines it lacks go to ``restored/``."""
+        result: dict = {"uploaded": [], "restored": [], "docs": []}
+        dev = self.engine.device_id
+        cloud_files = set(self.store.list("events"))
+        for source in self.db.event_files():
+            if not source.startswith("events/"):
+                continue  # restored/ fragments are re-derived below
+            _events, file_dev, name = source.split("/")
+            lines = self.db.file_lines(source)
+            data = _jsonl(lines)
+            if source not in cloud_files:
+                if self.store.put_if_absent(source, data):
+                    result["uploaded"].append(source)
+                continue
+            raw = self.store.get(source) or b""
+            present = set(raw.decode().split("\n"))
+            extra = [line for line in lines if line not in present]
+            if not extra:
+                continue
+            if file_dev == dev:
+                # Own log: authoritative, and the normal upload path
+                # overwrites it wholesale anyway.
+                self.store.put(source, data)
+                result["uploaded"].append(source)
+            else:
+                path = f"restored/{dev}/{file_dev}/{name}"
+                self.store.put(path, _jsonl(extra))
+                result["restored"].append(path)
+
+        for doc in self.db.config_history():
+            path = f"config/history/config_v{doc['version']:04}.json"
+            if self.store.put_if_absent(path, _dumps(doc)):
+                result["docs"].append(path)
+        latest = self.db.latest_config()
+        if latest and self.store.put_if_absent("config/current.json", _dumps(latest)):
+            result["docs"].append("config/current.json")
+        for (survey_id, version), doc in self.db.all_surveys().items():
+            path = f"surveys/{survey_id}/v{version}.json"
+            if self.store.put_if_absent(path, _dumps(doc)):
+                result["docs"].append(path)
+        if self._ensure_manifest():
+            result["docs"].append("manifest.json")
+        result["sync"] = self.sync()
+        return result
+
+    def _ensure_manifest(self) -> bool:
+        doc = {
+            "format_version": FORMAT_VERSION,
+            "created_at": fmt_utc(self.engine.clock.now()),
+            "install_id": self.engine.device_id,
+        }
+        return self.store.put_if_absent("manifest.json", _dumps(doc))
 
     def lightweight_check(self) -> None:
         """Pre-notification check (§8.4): config + state metadata only."""
@@ -194,7 +261,7 @@ class Syncer:
         for month in self.db.unsynced_months(dev):
             path = f"events/{dev}/{month}.jsonl"
             lines = self.db.month_lines(dev, month)
-            self.store.put(path, ("\n".join(lines) + "\n").encode())
+            self.store.put(path, _jsonl(lines))
             # Mark only the snapshot uploaded: the engine thread may append
             # to this month while the put is in flight, and those events must
             # stay unsynced for the next trigger.
@@ -299,14 +366,24 @@ class Syncer:
     def _update_device_doc(self, result: dict) -> None:
         dev = self.engine.device_id
         now = self.engine.clock.now()
-        role = self.db.kv_get("device", "role")
-        if role is None:
-            role = "primary" if self._no_other_primary(dev) else ""
-            self.db.kv_set("device", "role", role)
+        others = self._other_devices(dev)
+        role = self.db.kv_get("device", "role") or ""
+        # §9: claim primary when no live primary exists (first run, or the
+        # previous primary has been silent for 14 days). Two simultaneous
+        # claimants are resolved by lexicographic device_id at the next
+        # sync that sees both.
+        if role != "primary" and not self._live_primary(others, now):
+            role = "primary"
+        if role == "primary" and any(
+            d["device_id"] < dev for d in others if self._is_live_primary(d, now)
+        ):
+            role = ""
+        self.db.kv_set("device", "role", role)
+        result["role"] = role
         doc = {
             "device_id": dev,
             "name": self.db.kv_get("device", "name") or dev,
-            "platform": "desktop",
+            "platform": self.platform,
             "app_version": APP_VERSION,
             "last_sync": fmt_utc(now),
             "role": role,
@@ -323,16 +400,81 @@ class Syncer:
             if unchanged and now - parse_utc(prev["last_sync"]) < 3600:
                 return
         self.store.put(path, _dumps(doc))
+        self._ensure_manifest()
 
-    def _no_other_primary(self, own_dev: str) -> bool:
+    def _other_devices(self, own_dev: str) -> list[dict]:
+        docs = []
         for path in self.store.list("devices"):
             raw = self.store.get(path)
             if not raw:
                 continue
             doc = json.loads(raw)
-            if doc.get("device_id") != own_dev and doc.get("role") == "primary":
-                return False
-        return True
+            if doc.get("device_id") and doc["device_id"] != own_dev:
+                docs.append(doc)
+        return docs
+
+    @classmethod
+    def _live_primary(cls, others: list[dict], now: int) -> bool:
+        return any(cls._is_live_primary(d, now) for d in others)
+
+    @staticmethod
+    def _is_live_primary(doc: dict, now: int) -> bool:
+        return (
+            doc.get("role") == "primary"
+            and now - parse_utc(doc.get("last_sync", "1970-01-01T00:00:00Z")) < PRIMARY_STALE_S
+        )
+
+    # -- step 5b: snapshots (§9) -----------------------------------------
+
+    def _snapshot(self, result: dict) -> None:
+        """Primary only: zip the folder on the first sync after Sunday 03:00
+        local, promote the month's first weekly zip to monthly, prune to
+        12 + 12. Keyed by the Sunday's date, so retries are idempotent."""
+        if self.db.kv_get("device", "role") != "primary":
+            return
+        config = self.db.latest_config()
+        if not config:
+            return
+        sunday = _last_sunday_0300(self.engine.clock.now(), config["timezone"])
+        weekly = f"snapshots/weekly/{sunday}.zip"
+        if self.store.metadata(weekly) is None:
+            data = self._zip_folder()
+            if self.store.put_if_absent(weekly, data):
+                result["snapshot"] = weekly
+            if self.store.put_if_absent(f"snapshots/monthly/{sunday[:7]}.zip", data):
+                result["snapshot_monthly"] = f"snapshots/monthly/{sunday[:7]}.zip"
+        for prefix in ("snapshots/weekly", "snapshots/monthly"):
+            zips = sorted(p for p in self.store.list(prefix) if p.endswith(".zip"))
+            for path in zips[:-SNAPSHOT_KEEP]:
+                self.store.delete(path)
+
+    def _zip_folder(self) -> bytes:
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for path in self.store.list(""):
+                if path.startswith("snapshots/"):
+                    continue
+                data = self.store.get(path)
+                if data is None:
+                    continue
+                info = zipfile.ZipInfo(path, date_time=(1980, 1, 1, 0, 0, 0))
+                info.compress_type = zipfile.ZIP_DEFLATED
+                zf.writestr(info, data)
+        return buf.getvalue()
+
+
+def _last_sunday_0300(now: int, timezone: str) -> str:
+    """Local date (YYYY-MM-DD) of the most recent Sunday 03:00 <= now."""
+    local = datetime.fromtimestamp(now, UTC).astimezone(ZoneInfo(timezone))
+    days_since_sunday = (local.weekday() + 1) % 7
+    sunday = local.date() - timedelta(days=days_since_sunday)
+    if days_since_sunday == 0 and local.time() < time(3, 0):
+        sunday -= timedelta(days=7)
+    return sunday.isoformat()
+
+
+def _jsonl(lines: list[str]) -> bytes:
+    return ("\n".join(lines) + "\n").encode()
 
 
 def _dumps(doc: dict) -> bytes:

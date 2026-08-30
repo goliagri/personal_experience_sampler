@@ -38,6 +38,10 @@ class CloudStore(ABC):
     def metadata(self, path: str) -> dict | None:
         """{"etag": str, "size": int} or None if absent."""
 
+    @abstractmethod
+    def delete(self, path: str) -> None:
+        """Remove a file; no error if absent (snapshot retention only)."""
+
 
 def _check_relative(path: str) -> PurePosixPath:
     p = PurePosixPath(path)
@@ -92,3 +96,6 @@ class LocalFolderStore(CloudStore):
             return None
         data = full.read_bytes()
         return {"etag": hashlib.sha256(data).hexdigest(), "size": len(data)}
+
+    def delete(self, path: str) -> None:
+        self._full(path).unlink(missing_ok=True)

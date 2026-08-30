@@ -48,6 +48,7 @@ class DriveStore(
     private val rootName: String = ROOT_FOLDER_NAME,
 ) : CloudStore {
     private var root: String? = null // verified once per instance
+    private val verifiedDirs = mutableSetOf<String>()
 
     // -- low-level HTTP ---------------------------------------------------
 
@@ -92,6 +93,18 @@ class DriveStore(
     private fun cache(key: String, fileId: String) = db.kvSet("drive", key, fileId)
 
     private fun dropCache(key: String) = db.kvSet("drive", key, "")
+
+    private fun dropSubtree(dirPath: String) {
+        for (key in db.kvAll("drive").keys) {
+            val kind = key.substringBefore(":")
+            val cachedPath = key.substringAfter(":")
+            if ((kind == "dir" || kind == "file") &&
+                (cachedPath == dirPath || cachedPath.startsWith("$dirPath/"))
+            ) {
+                dropCache(key)
+            }
+        }
+    }
 
     private fun exists(fileId: String): Boolean {
         val resp = request(
@@ -149,9 +162,15 @@ class DriveStore(
             path = if (path.isEmpty()) name else "$path/$name"
             val key = "dir:$path"
             val hit = cached(key)
-            if (hit != null) {
+            if (hit != null && (path in verifiedDirs || exists(hit))) {
+                verifiedDirs.add(path)
                 parent = hit
                 continue
+            }
+            if (hit != null) {
+                // Folder deleted/recreated remotely (e.g. a restore drill):
+                // everything cached beneath it is stale too.
+                dropSubtree(path)
             }
             val found = children(parent, name).filter { it.str("mimeType") == FOLDER_MIME }
             parent = when {
@@ -265,7 +284,7 @@ class DriveStore(
         while (stack.isNotEmpty()) {
             val (dirPath, dirId) = stack.removeLast()
             for (f in children(dirId)) {
-                val childPath = "$dirPath/${f.str("name")}"
+                val childPath = if (dirPath.isEmpty()) f.str("name") else "$dirPath/${f.str("name")}"
                 if (f.str("mimeType") == FOLDER_MIME) {
                     cache("dir:$childPath", f.str("id"))
                     stack.addLast(Pair(childPath, f.str("id")))
@@ -281,5 +300,11 @@ class DriveStore(
     override fun metadata(path: String): CloudMeta? {
         val info = resolveFile(path) ?: return null
         return CloudMeta(info.str("modifiedTime"), info.optStr("size")?.toLongOrNull() ?: 0)
+    }
+
+    override fun delete(path: String) {
+        val info = resolveFile(path) ?: return
+        request("DELETE", "$FILES_URL/${info.str("id")}", ok = setOf(200, 204, 404))
+        dropCache("file:$path")
     }
 }

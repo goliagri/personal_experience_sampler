@@ -90,12 +90,19 @@ class SettingsScreen(ttk.Frame):
         ttk.Button(self, text="Show schedule (next 48 h)...", command=self._show_schedule).pack(
             anchor="w", pady=8
         )
+        role = self.app.db.kv_get("device", "role") or ""
         ttk.Label(
             self,
-            text="Restore cloud from local cache: arrives with sync hardening"
-            " (milestone 5).",
+            text=(
+                "Snapshot role: primary (this device zips the cloud folder weekly)"
+                if role == "primary"
+                else "Snapshot role: none (another device holds primary)"
+            ),
             foreground=self.app.colors["muted"],
         ).pack(anchor="w")
+        ttk.Button(self, text="Restore cloud from local cache...", command=self._restore).pack(
+            anchor="w", pady=4
+        )
 
     def _drive_section(self, engine) -> None:
         ttk.Label(self, text="Google Drive sync", font=theme.FONT_BOLD).pack(anchor="w")
@@ -191,6 +198,19 @@ class SettingsScreen(ttk.Frame):
         self.app.db.kv_set("device", "theme", self.theme_var.get())
         self.app.apply_theme(self.theme_var.get())
         self.app.set_status(f"Theme: {self.theme_var.get()}")
+
+    def _restore(self) -> None:
+        from tkinter import messagebox
+
+        if messagebox.askokcancel(
+            "Restore cloud folder",
+            "Re-create any cloud files missing from this device's local cache"
+            " (own event log, cached copies of other devices' logs, config"
+            " history, surveys). Existing cloud files are never overwritten;"
+            " extra lines go to restored/. A normal sync follows.\n\nProceed?",
+            parent=self,
+        ):
+            self.app.restore_async()
 
     def _show_schedule(self) -> None:
         window = tk.Toplevel(self)

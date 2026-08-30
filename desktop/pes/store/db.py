@@ -218,13 +218,25 @@ class Db:
         ]
 
     def month_lines(self, dev: str, month: str) -> list[str]:
-        source = f"events/{dev}/{month}.jsonl"
+        return self.file_lines(f"events/{dev}/{month}.jsonl")
+
+    def file_lines(self, source_file: str) -> list[str]:
+        """Exact JSONL lines of one cached file (own or imported), in order."""
         return [
             payload
             for (payload,) in self.conn.execute(
                 "SELECT payload_json FROM events WHERE source_file = ?"
                 " ORDER BY line",
-                (source,),
+                (source_file,),
+            )
+        ]
+
+    def event_files(self) -> list[str]:
+        """Every cached event file path (own months plus imported copies)."""
+        return [
+            source
+            for (source,) in self.conn.execute(
+                "SELECT DISTINCT source_file FROM events ORDER BY source_file"
             )
         ]
 

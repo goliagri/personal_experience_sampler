@@ -18,6 +18,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -245,6 +246,10 @@ fun SettingsScreen(host: EngineHost, refresh: Int, bump: () -> Unit) {
             )
         }
     }
+    val role by produceState("", refresh) {
+        value = host.withEngine { it.db.kvGet("device", "role") ?: "" }
+    }
+    var confirmRestore by remember { mutableStateOf(false) }
     val i = info ?: return
     var name by remember(i.third) { mutableStateOf(i.third ?: i.first) }
 
@@ -291,15 +296,40 @@ fun SettingsScreen(host: EngineHost, refresh: Int, bump: () -> Unit) {
         DriveSection(host, refresh, bump)
 
         HorizontalDivider()
-        OutlinedButton(onClick = {
-            SyncWorker.syncNow(context)
-            scope.launch {
-                kotlinx.coroutines.delay(6000) // let the worker finish, then re-read status
-                bump()
-            }
-        }) { Text("Sync now") }
+        OutlinedButton(onClick = { SyncWorker.syncNow(context) }) { Text("Sync now") }
+        Text(
+            if (role == "primary") "Snapshot role: primary (this device zips the cloud folder weekly)"
+            else "Snapshot role: none (another device holds primary)",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        TextButton(onClick = { confirmRestore = true }) { Text("Restore cloud from local cache…") }
+        if (confirmRestore) {
+            AlertDialog(
+                onDismissRequest = { confirmRestore = false },
+                title = { Text("Restore cloud folder") },
+                text = {
+                    Text(
+                        "Re-create any cloud files missing from this device's local cache" +
+                            " (own event log, cached copies of other devices' logs, config" +
+                            " history, surveys). Existing cloud files are never overwritten;" +
+                            " extra lines go to restored/. A normal sync follows."
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        confirmRestore = false
+                        SyncWorker.restoreNow(context)
+                        scope.launch {
+                            kotlinx.coroutines.delay(8000)
+                            bump()
+                        }
+                    }) { Text("Restore") }
+                },
+                dismissButton = { TextButton(onClick = { confirmRestore = false }) { Text("Cancel") } },
+            )
+        }
 
-        ScheduleSection(host)
+        ScheduleSection(host, refresh)
     }
 }
 
@@ -347,28 +377,27 @@ fun permissionsChecklist(context: Context, requestNotif: (String) -> Unit): List
     return items
 }
 
-/** "Show schedule" (§10.2): hidden behind an explicit action. */
+/** "Show schedule" (§10.2): hidden behind an explicit action; re-read on
+ * every [refresh] (e.g. after a sync applies a new config). */
 @Composable
-private fun ScheduleSection(host: EngineHost) {
+private fun ScheduleSection(host: EngineHost, refresh: Int) {
     var shown by remember { mutableStateOf(false) }
-    var lines by remember { mutableStateOf<List<String>>(emptyList()) }
-    val scope = rememberCoroutineScope()
     HorizontalDivider()
     if (!shown) {
-        TextButton(onClick = {
-            scope.launch {
-                lines = host.withEngine { engine ->
-                    engine.db.dueSchedule("9999").map {
-                        "${localDateTime(engine, parseUtc(it.scheduledUtc))}  ${it.stream}" +
-                            (it.suppressedReason?.let { r -> "  [$r]" } ?: "")
-                    }
-                }
-                shown = true
+        TextButton(onClick = { shown = true }) { Text("Show schedule (next 48 h)…") }
+        return
+    }
+    val lines by produceState<List<String>?>(null, refresh) {
+        value = host.withEngine { engine ->
+            engine.db.dueSchedule("9999").map {
+                "${localDateTime(engine, parseUtc(it.scheduledUtc))}  ${it.stream}" +
+                    (it.suppressedReason?.let { r -> "  [$r]" } ?: "")
             }
-        }) { Text("Show schedule (next 48 h)…") }
-    } else {
-        Text("Schedule (next 48 h)", style = MaterialTheme.typography.titleMedium)
-        for (line in lines) Text(line, style = MaterialTheme.typography.bodySmall)
-        if (lines.isEmpty()) Text("Nothing scheduled.")
+        }
+    }
+    Text("Schedule (next 48 h)", style = MaterialTheme.typography.titleMedium)
+    lines?.let { rows ->
+        for (line in rows) Text(line, style = MaterialTheme.typography.bodySmall)
+        if (rows.isEmpty()) Text("Nothing scheduled.")
     }
 }

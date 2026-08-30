@@ -298,17 +298,31 @@ class App:
         self.root.after(SYNC_INTERVAL_S * 1000, self._periodic_sync)
 
     def sync_async(self) -> None:
+        self._run_sync("Syncing...", lambda syncer: syncer.sync())
+
+    def restore_async(self) -> None:
+        """§8.6: rebuild the cloud folder from this device's cache, then sync."""
+
+        def work(syncer: Syncer) -> dict:
+            result = syncer.restore()
+            n = len(result["uploaded"]) + len(result["restored"]) + len(result["docs"])
+            sync_result = result["sync"]
+            sync_result["warnings"] = [f"restored {n} file(s)", *sync_result["warnings"]]
+            return sync_result
+
+        self._run_sync("Restoring cloud folder...", work)
+
+    def _run_sync(self, status: str, job) -> None:
         if not self._sync_lock.acquire(blocking=False):
             return  # a sync is already running
-        self.set_status("Syncing...")
+        self.set_status(status)
 
         def work() -> None:
             try:
                 db = Db(self.data_dir / "pes.sqlite")
                 engine = Engine(db, self.device_id, self.notifier)
                 engine.clock = self.engine.clock
-                syncer = Syncer(engine, self._make_store(db))
-                result = syncer.sync()
+                result = job(Syncer(engine, self._make_store(db)))
                 message = f"Synced {fmt_utc(engine.clock.now())}"
                 if result["warnings"]:
                     message += " - " + "; ".join(result["warnings"])

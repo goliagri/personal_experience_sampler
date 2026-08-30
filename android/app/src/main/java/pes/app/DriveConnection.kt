@@ -10,17 +10,21 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.work.WorkManager
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.Scope
 import com.google.android.gms.tasks.Tasks
 import java.io.IOException
+import kotlinx.coroutines.flow.map
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import pes.store.TokenSource
@@ -82,7 +86,20 @@ fun DriveSection(host: EngineHost, refresh: Int, bump: () -> Unit) {
     val context = LocalContext.current
     var connected by remember { mutableStateOf(DriveConnection.connected(context)) }
     var status by remember { mutableStateOf<String?>(null) }
-    val syncState by androidx.compose.runtime.produceState<Triple<String?, String?, String?>?>(null, refresh) {
+    // Manual sync runs in a WorkManager job; observe it so the status line
+    // updates the moment it finishes instead of showing a stale value.
+    val running by remember {
+        WorkManager.getInstance(context).getWorkInfosForUniqueWorkFlow(SyncWorker.MANUAL_WORK)
+            .map { infos -> infos.any { !it.state.isFinished } }
+    }.collectAsState(initial = false)
+    // When a manual sync finishes, re-read the whole screen (status, role,
+    // schedule): the worker may have applied a new config.
+    var wasRunning by remember { mutableStateOf(false) }
+    LaunchedEffect(running) {
+        if (wasRunning && !running) bump()
+        wasRunning = running
+    }
+    val syncState by androidx.compose.runtime.produceState<Triple<String?, String?, String?>?>(null, refresh, running) {
         value = host.withEngine {
             Triple(
                 it.db.kvGet("sync_meta", "last_sync"),
@@ -118,6 +135,7 @@ fun DriveSection(host: EngineHost, refresh: Int, bump: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         syncState?.let { (last, result, error) ->
+            if (running) Text("Syncing…", style = MaterialTheme.typography.bodySmall)
             Text(
                 "Last successful sync: ${last ?: "never"}" +
                     (result?.let { r -> " ($r)" } ?: ""),

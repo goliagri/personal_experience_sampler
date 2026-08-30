@@ -47,6 +47,14 @@ class FakeDrive : HttpSession {
     fun byName(name: String): List<FakeFile> =
         files.values.filter { it.name == name && !it.trashed }
 
+    private fun live(id: String): Boolean = files[id]?.let { !it.trashed } ?: false
+
+    /** Trash a file, or a folder with everything under it (as Drive does). */
+    fun trash(id: String) {
+        files.getValue(id).trashed = true
+        for (f in files.values.toList()) if (id in f.parents) trash(f.id)
+    }
+
     fun mediaDownloads(): List<String> = calls
         .filter { it.first == "GET" && it.third["alt"] == "media" }
         .map { it.second.substringAfterLast("/") }
@@ -85,6 +93,11 @@ class FakeDrive : HttpSession {
         if (url.startsWith("https://www.googleapis.com/drive/v3/files/")) {
             val fileId = url.substringAfterLast("/")
             val record = files[fileId]
+            if (method == "DELETE") {
+                if (record == null) return jsonResponse(404, "error" to "not found")
+                files.remove(fileId)
+                return HttpResponse(204, ByteArray(0))
+            }
             if (method == "GET") {
                 if (record == null || record.trashed) return jsonResponse(404, "error" to "not found")
                 if (params["alt"] == "media") return HttpResponse(200, record.content)
@@ -113,6 +126,8 @@ class FakeDrive : HttpSession {
     }
 
     private fun create(metaDoc: JsonObject, content: ByteArray): HttpResponse {
+        val parents = (metaDoc["parents"] as? JsonArray)?.map { (it as JsonPrimitive).content } ?: emptyList()
+        if (parents.any { !live(it) }) return jsonResponse(404, "error" to "parent not found")
         val id = add(
             (metaDoc.getValue("name") as JsonPrimitive).content,
             (metaDoc["mimeType"] as? JsonPrimitive)?.content ?: "application/octet-stream",
@@ -143,6 +158,7 @@ class FakeDrive : HttpSession {
                     throw AssertionError("FakeDrive: unsupported clause $clause")
             }
         }
+        if (parent != null && !live(parent)) return jsonResponse(404, "error" to "parent not found")
         val matches = files.values.filter {
             !it.trashed &&
                 (name == null || it.name == name) &&

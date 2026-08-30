@@ -69,6 +69,7 @@ class DriveStore(CloudStore):
         self.db = db  # kv namespace "drive": root + path->id caches
         self.root_name = root_name
         self._root: str | None = None  # verified once per instance
+        self._verified_dirs: set[str] = set()
 
     # -- low-level HTTP ---------------------------------------------------
 
@@ -107,6 +108,14 @@ class DriveStore(CloudStore):
 
     def _drop_cache(self, key: str) -> None:
         self.db.kv_set("drive", key, "")
+
+    def _drop_subtree(self, dir_path: str) -> None:
+        for key in self.db.kv_all("drive"):
+            kind, _, cached_path = key.partition(":")
+            if kind in ("dir", "file") and (
+                cached_path == dir_path or cached_path.startswith(dir_path + "/")
+            ):
+                self._drop_cache(key)
 
     def _exists(self, file_id: str) -> bool:
         resp = self._request(
@@ -161,9 +170,14 @@ class DriveStore(CloudStore):
             path = f"{path}/{name}" if path else name
             key = f"dir:{path}"
             cached = self._cached(key)
-            if cached:
+            if cached and (path in self._verified_dirs or self._exists(cached)):
+                self._verified_dirs.add(path)
                 parent = cached
                 continue
+            if cached:
+                # Folder deleted/recreated remotely (e.g. a restore drill):
+                # everything cached beneath it is stale too.
+                self._drop_subtree(path)
             found = [
                 f for f in self._children(parent, name) if f["mimeType"] == FOLDER_MIME
             ]
@@ -274,7 +288,7 @@ class DriveStore(CloudStore):
         while stack:
             dir_path, dir_id = stack.pop()
             for f in self._children(dir_id):
-                child_path = f"{dir_path}/{f['name']}"
+                child_path = f"{dir_path}/{f['name']}" if dir_path else f["name"]
                 if f["mimeType"] == FOLDER_MIME:
                     self._cache(f"dir:{child_path}", f["id"])
                     stack.append((child_path, f["id"]))
@@ -288,3 +302,10 @@ class DriveStore(CloudStore):
         if info is None:
             return None
         return {"etag": info["modifiedTime"], "size": int(info.get("size") or 0)}
+
+    def delete(self, path: str) -> None:
+        info = self._resolve_file(path)
+        if info is None:
+            return
+        self._request("DELETE", f"{FILES_URL}/{info['id']}", ok=(200, 204, 404))
+        self._drop_cache(f"file:{path}")

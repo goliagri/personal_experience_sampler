@@ -263,11 +263,18 @@ class Db(path: String) {
             { it.bindText(1, dev) },
         ) { it.getText(0).substringAfterLast("/").removeSuffix(".jsonl") }
 
-    fun monthLines(dev: String, month: String): List<String> =
+    fun monthLines(dev: String, month: String): List<String> = fileLines("events/$dev/$month.jsonl")
+
+    /** Exact JSONL lines of one cached file (own or imported), in order. */
+    fun fileLines(sourceFile: String): List<String> =
         query(
             "SELECT payload_json FROM events WHERE source_file = ? ORDER BY line",
-            { it.bindText(1, "events/$dev/$month.jsonl") },
+            { it.bindText(1, sourceFile) },
         ) { it.getText(0) }
+
+    /** Every cached event file path (own months plus imported copies). */
+    fun eventFiles(): List<String> =
+        query("SELECT DISTINCT source_file FROM events ORDER BY source_file") { it.getText(0) }
 
     /** Mark a month's events uploaded; `uptoLine` bounds the snapshot that
      * was actually written (events appended mid-upload stay unsynced). */

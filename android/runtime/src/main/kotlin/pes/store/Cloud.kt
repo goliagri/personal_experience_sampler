@@ -31,6 +31,9 @@ interface CloudStore {
 
     /** Metadata, or null if absent. */
     fun metadata(path: String): CloudMeta?
+
+    /** Remove a file; no error if absent (snapshot retention only). */
+    fun delete(path: String)
 }
 
 private fun checkRelative(path: String): String {
@@ -83,5 +86,9 @@ class LocalFolderStore(root: File) : CloudStore {
         val data = f.readBytes()
         val digest = MessageDigest.getInstance("SHA-256").digest(data)
         return CloudMeta(digest.joinToString("") { "%02x".format(it) }, data.size.toLong())
+    }
+
+    override fun delete(path: String) {
+        full(path).delete()
     }
 }
