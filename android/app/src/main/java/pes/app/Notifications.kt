@@ -18,12 +18,13 @@ import pes.core.bool
 import pes.core.int
 import pes.core.objList
 import pes.core.parseUtc
+import pes.core.splitTags
 import pes.core.str
+import pes.core.TAG_RE
 
 const val CHANNEL_PINGS = "pings"
 const val EXTRA_SAMPLE = "pes.sample_id"
 const val KEY_REPLY = "pes.reply"
-private val TAG_RE = Regex("[A-Za-z0-9_.\\-]{1,64}")
 
 fun ensureNotificationChannel(context: Context) {
     val channel = NotificationChannel(
@@ -63,6 +64,9 @@ class AndroidNotifier(private val context: Context) : Notifier {
         )
 
         val builder = NotificationCompat.Builder(context, CHANNEL_PINGS)
+            // Carried so `reconcile` can tell which sample a posted
+            // notification belongs to without re-deriving the id hash.
+            .addExtras(android.os.Bundle().apply { putString(EXTRA_SAMPLE, sampleId) })
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
             .setContentTitle(title)
             .setContentText(body)
@@ -71,11 +75,12 @@ class AndroidNotifier(private val context: Context) : Notifier {
             .setOnlyAlertOnce(false)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .addAction(0, "Open", open)
-            .addAction(0, "Snooze", action(ActionReceiver.SNOOZE))
-            .addAction(0, "Skip", action(ActionReceiver.SKIP))
 
-        inlineTagsField(sampleId)?.let { fieldId ->
+        // Android renders at most three actions. Tapping the body already
+        // opens the sample, so the explicit "Open" button yields its slot to
+        // the inline reply whenever §10.3 offers one.
+        val replyField = inlineTagsField(sampleId)
+        if (replyField != null) {
             val remote = RemoteInput.Builder(KEY_REPLY).setLabel("tags").build()
             builder.addAction(
                 NotificationCompat.Action.Builder(0, "Reply tags", action(ActionReceiver.REPLY))
@@ -83,7 +88,12 @@ class AndroidNotifier(private val context: Context) : Notifier {
                     .setAllowGeneratedReplies(false)
                     .build()
             )
+        } else {
+            builder.addAction(0, "Open", open)
         }
+        builder
+            .addAction(0, "Snooze", action(ActionReceiver.SNOOZE))
+            .addAction(0, "Skip", action(ActionReceiver.SKIP))
 
         try {
             NotificationManagerCompat.from(context).notify(sampleId.hashCode(), builder.build())
@@ -94,6 +104,25 @@ class AndroidNotifier(private val context: Context) : Notifier {
 
     override fun cancel(sampleId: String) {
         NotificationManagerCompat.from(context).cancel(sampleId.hashCode())
+    }
+
+    /**
+     * Take down ping notifications whose sample is no longer active.
+     *
+     * Notifications outlive the process, so an alarm the system dropped (a
+     * force-stop, an OEM battery manager) can leave a card reading "answer
+     * now" beside a live ping, indistinguishable from it, with working Snooze
+     * and inline-reply actions — Tier 3 charter C2 F3. Called on every tick,
+     * so the next time the app runs for any reason the shade is made honest.
+     */
+    fun reconcile(activeSamples: Set<String>) {
+        val manager = context.getSystemService(NotificationManager::class.java) ?: return
+        val posted = runCatching { manager.activeNotifications }.getOrNull() ?: return
+        for (sbn in posted) {
+            if (sbn.notification?.channelId != CHANNEL_PINGS) continue
+            val sample = sbn.notification.extras?.getString(EXTRA_SAMPLE) ?: continue
+            if (sample !in activeSamples) manager.cancel(sbn.id)
+        }
     }
 
     /** The tags field id for the inline reply, or null if not offered
@@ -116,6 +145,7 @@ class AndroidNotifier(private val context: Context) : Notifier {
 /** Snooze refusal codes (§6.5) as user-facing text. */
 fun snoozeRefusalText(refusal: String): String = when (refusal) {
     "max_snoozes" -> "Snooze refused: no snoozes left"
+    "expired" -> "Too late to snooze: this ping has expired"
     "near_expiry" -> "Snooze refused: too close to expiry"
     else -> "Snooze refused: $refusal"
 }
@@ -165,7 +195,8 @@ class ActionReceiver : BroadcastReceiver() {
         val text = RemoteInput.getResultsFromIntent(intent)
             ?.getCharSequence(KEY_REPLY)?.toString() ?: return
         val fieldId = notifier.inlineTagsField(sampleId) ?: return
-        val tags = text.trim().split(Regex("\\s+")).filter { it.matches(TAG_RE) }
+        // Same normalisation as the in-app form: the shade's IME capitalises.
+        val tags = splitTags(text).filter { it.matches(TAG_RE) }
         if (tags.isEmpty()) {
             toast(context, "No valid tags in reply; ping still pending")
             return

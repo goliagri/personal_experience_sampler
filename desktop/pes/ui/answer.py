@@ -17,6 +17,11 @@ from ..core.timeutil import parse_utc
 from . import theme
 from .widgets import ScrollFrame, TagEntry
 
+SNOOZE_REFUSALS = {
+    "near_expiry": "Snooze refused: too close to expiry",
+    "max_snoozes": "Snooze refused: snooze limit reached",
+    "expired": "Too late to snooze: this ping has expired",
+}
 
 class FieldWidget:
     """One rendered survey field; knows how to read and validate itself."""
@@ -271,11 +276,44 @@ class AnswerWindow(tk.Toplevel):
 
         now = self.engine.clock.now()
         settings = self.engine.effective_settings(stream_id, self.scheduled)
-        self.late = now > self.scheduled + settings["expiry_minutes"] * 60
+        self.expires_at = self.scheduled + settings["expiry_minutes"] * 60
+        self.late = now > self.expires_at
 
         self._build(now)
+        # Lateness is not a property of the route in, it is the clock: a form
+        # left open across expiry must grow the banner and lose Snooze/Skip
+        # (Tier 3 charter C2 F2), otherwise the answer is stored `late: true`
+        # while the screen still claims the ping is live.
+        self._late_watch()
         self.bind("<Control-Return>", lambda e: self.submit())
         self.bind("<Escape>", lambda e: self.destroy())
+
+    def _late_watch(self) -> None:
+        """Re-check the clock while the form is open; promote to LATE in place."""
+        if not self.winfo_exists():
+            return
+        now = self.engine.clock.now()
+        if not self.late and now > self.expires_at:
+            self.late = True
+            if self._actions is not None:
+                self._actions.destroy()
+                self._actions = None
+            ago_h = (now - self.scheduled) / 3600
+            ago = f"{ago_h:.1f} h ago" if ago_h < 48 else f"{ago_h / 24:.0f} days ago"
+            banner = tk.Label(
+                self,
+                text=(
+                    f"LATE - originally {self._local_str(self.scheduled)}, {ago}."
+                    " This answer will be marked late."
+                ),
+                bg=self.app.colors["warn_bg"],
+                fg=self.app.colors["warn_fg"],
+                anchor="w",
+                padx=12,
+                pady=6,
+            )
+            banner.pack(fill="x", before=self._page)
+        self.after(10_000, self._late_watch)
 
     def _local_str(self, epoch: int) -> str:
         config = self.engine.config_at(epoch) or {"timezone": "UTC"}
@@ -311,6 +349,7 @@ class AnswerWindow(tk.Toplevel):
                 pady=6,
             )
             banner.pack(fill="x")
+            self._actions = None
         else:
             actions = ttk.Frame(self, padding=(12, 0))
             actions.pack(fill="x")
@@ -318,8 +357,10 @@ class AnswerWindow(tk.Toplevel):
             ttk.Button(actions, text="Skip", command=self._skip).pack(
                 side="left", padx=6
             )
+            self._actions = actions
 
         page = ScrollFrame(self)
+        self._page = page
         page.pack(fill="both", expand=True, padx=4)
         body = page.inner
 
@@ -369,10 +410,10 @@ class AnswerWindow(tk.Toplevel):
 
     def _snooze(self) -> None:
         refused = self.engine.snooze(self.sample_id)
-        if refused == "near_expiry":
-            self.app.set_status("Snooze refused: too close to expiry")
-        elif refused == "max_snoozes":
-            self.app.set_status("Snooze refused: snooze limit reached")
+        if refused is not None:
+            # Any refusal keeps the window open; an unknown reason must never
+            # read as success (it used to fall through to "Snoozed").
+            self.app.set_status(SNOOZE_REFUSALS.get(refused, f"Snooze refused: {refused}"))
         else:
             self.app.set_status("Snoozed")
             self.destroy()

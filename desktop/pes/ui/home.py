@@ -119,6 +119,22 @@ class HomeScreen(ttk.Frame):
             side="left", padx=8
         )
 
+        # Take what this build understands and say what it cannot, rather than
+        # letting a stream that the client cannot compute look like a stream
+        # that simply went quiet (Tier 3 charter C5 F2/F6).
+        issues = self.app.engine.config_issues(now)
+        if issues:
+            ttk.Label(
+                self,
+                text=(
+                    "Config problems on this device - the rest of the config"
+                    " still runs:\n• " + "\n• ".join(issues)
+                ),
+                foreground=self.app.colors["warn_fg"],
+                justify="left",
+                wraplength=520,
+            ).pack(anchor="w", pady=(0, 6))
+
         self._calendar(now)
 
     # -- helpers ----------------------------------------------------------

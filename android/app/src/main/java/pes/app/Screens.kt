@@ -9,6 +9,8 @@ import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -41,8 +43,10 @@ import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import pes.Engine
 import pes.core.bool
+import pes.core.int
 import pes.core.objList
 import pes.core.optStr
 import pes.core.parseUtc
@@ -103,7 +107,14 @@ fun BacklogScreen(host: EngineHost, refresh: Int, push: (Screen) -> Unit) {
 
 private val STATUSES = listOf("all", "answered", "skipped", "expired", "unobserved", "suppressed", "pending", "retracted")
 
-data class HistoryRow(val sampleId: String, val label: String, val status: String, val answered: Boolean)
+data class HistoryRow(
+    val sampleId: String,
+    val label: String,
+    val status: String,
+    val answered: Boolean,
+    /** Past its active window — the clock decides, not the route or the status. */
+    val late: Boolean,
+)
 
 @Composable
 fun HistoryScreen(host: EngineHost, refresh: Int, push: (Screen) -> Unit) {
@@ -118,11 +129,15 @@ fun HistoryScreen(host: EngineHost, refresh: Int, push: (Screen) -> Unit) {
                 .map {
                     val name = engine.streamConfig(it.str("stream"), parseUtc(it.str("scheduled_utc")))
                         ?.str("name") ?: it.str("stream")
+                    val scheduled = parseUtc(it.str("scheduled_utc"))
+                    val expiry = engine.effectiveSettings(it.str("stream"), scheduled)
+                        .int("expiry_minutes") * 60L
                     HistoryRow(
                         it.str("sample"),
                         "${localDateTime(engine, parseUtc(it.str("scheduled_utc")))}  $name",
                         it.str("status"),
                         it.str("status") == "answered",
+                        late = scheduled + expiry <= engine.clock.now(),
                     )
                 }
         }
@@ -146,7 +161,17 @@ fun HistoryScreen(host: EngineHost, refresh: Int, push: (Screen) -> Unit) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column(Modifier.padding(end = 8.dp)) {
                     Text(row.label)
-                    Text(row.status, style = MaterialTheme.typography.bodySmall, color = statusColor(row.status))
+                    Text(
+                        row.status,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = statusColor(row.status),
+                        // §10.1: retracted is struck through.
+                        textDecoration = if (row.status == "retracted") {
+                            androidx.compose.ui.text.style.TextDecoration.LineThrough
+                        } else {
+                            null
+                        },
+                    )
                 }
                 if (row.answered) {
                     TextButton(onClick = {
@@ -156,8 +181,12 @@ fun HistoryScreen(host: EngineHost, refresh: Int, push: (Screen) -> Unit) {
                         }
                     }) { Text("Retract") }
                 } else if (row.status in listOf("expired", "unobserved", "skipped", "pending")) {
+                    // Whether answering is *late* is the clock's business, not
+                    // the row's status: a ping skipped a minute ago is still
+                    // inside its window, and calling that "Answer late" is a
+                    // lie the user would learn to ignore (Tier 3 charter C2 F1).
                     TextButton(onClick = { push(Screen.Answer(row.sampleId, fromBacklog = true)) }) {
-                        Text("Answer late")
+                        Text(if (row.late) "Answer late" else "Answer")
                     }
                 }
             }
@@ -166,12 +195,37 @@ fun HistoryScreen(host: EngineHost, refresh: Int, push: (Screen) -> Unit) {
     }
 }
 
+/**
+ * The shared status palette (spec §10.1), the same hex values the desktop uses
+ * in `ui/theme.py` — the two clients are meant to be recognisably one app, and
+ * theme roles collapsed skipped/unobserved/pending into one grey (Tier 3
+ * charter C6 F4). Lightened in dark mode to keep contrast on a dark surface;
+ * `retracted` is rendered struck-through by its caller.
+ */
+private val STATUS_COLORS_LIGHT = mapOf(
+    "answered" to Color(0xFF2E7D32), // green
+    "skipped" to Color(0xFF757575), // gray
+    "expired" to Color(0xFFF9A825), // amber
+    "unobserved" to Color(0xFF607D8B), // blue-gray
+    "suppressed" to Color(0xFF9E9E9E), // muted
+    "pending" to Color(0xFF1565C0), // accent
+    "retracted" to Color(0xFF9E9E9E),
+)
+
+private val STATUS_COLORS_DARK = mapOf(
+    "answered" to Color(0xFF81C784),
+    "skipped" to Color(0xFFBDBDBD),
+    "expired" to Color(0xFFFFD54F),
+    "unobserved" to Color(0xFF90A4AE),
+    "suppressed" to Color(0xFF9E9E9E),
+    "pending" to Color(0xFF64B5F6),
+    "retracted" to Color(0xFF9E9E9E),
+)
+
 @Composable
-private fun statusColor(status: String) = when (status) {
-    "answered" -> MaterialTheme.colorScheme.primary
-    "expired" -> MaterialTheme.colorScheme.tertiary
-    "retracted", "suppressed" -> MaterialTheme.colorScheme.outline
-    else -> MaterialTheme.colorScheme.onSurfaceVariant
+fun statusColor(status: String): Color {
+    val palette = if (isSystemInDarkTheme()) STATUS_COLORS_DARK else STATUS_COLORS_LIGHT
+    return palette[status] ?: MaterialTheme.colorScheme.onSurfaceVariant
 }
 
 // -- Streams (§10.2, read-only in the Android MVP) --------------------------
@@ -187,7 +241,12 @@ fun StreamsScreen(host: EngineHost, refresh: Int, bump: () -> Unit) {
         value = host.withEngine { engine ->
             (engine.db.latestConfig()?.objList("streams") ?: emptyList()).map { s ->
                 val p = s["protocol"] as JsonObject
-                StreamRow(s.str("id"), s.str("name"), s.bool("enabled", true), p.str("type"))
+                // Type + params, the same summary the desktop's stream list
+                // shows; the bare type id said nothing about the cadence (C4 F7).
+                val params = p.entries.filter { it.key != "type" }
+                    .joinToString(", ") { (k, v) -> "$k=${(v as? JsonPrimitive)?.content ?: v}" }
+                val summary = if (params.isEmpty()) p.str("type") else "${p.str("type")} $params"
+                StreamRow(s.str("id"), s.str("name"), s.bool("enabled", true), summary)
             }
         }
     }
@@ -208,12 +267,15 @@ fun StreamsScreen(host: EngineHost, refresh: Int, bump: () -> Unit) {
             if (row.enabled) {
                 OutlinedButton(onClick = {
                     scope.launch {
-                        val sample = host.withEngine {
+                        // The raw sample id told the user nothing (C4 F8); the
+                        // stream and the local time are what they can check.
+                        host.tryWithEngine {
                             val id = it.fireTestPing(row.id)
                             Alarms.schedule(context, it.nextWake(it.clock.now()))
-                            id
-                        }
-                        status = "Test ping fired: $sample"
+                            localDateTime(it, parseUtc(id.substringAfter("|")))
+                        }.onSuccess { at ->
+                            status = "Test ping fired for ${row.name} at $at — check your notifications."
+                        }.onFailure { status = "Could not fire a test ping: $it" }
                         bump()
                     }
                 }) { Text("Fire test ping now") }
@@ -246,14 +308,17 @@ fun SettingsScreen(host: EngineHost, refresh: Int, bump: () -> Unit) {
             )
         }
     }
-    val role by produceState("", refresh) {
-        value = host.withEngine { it.db.kvGet("device", "role") ?: "" }
+    val role by produceState<String?>("", refresh) {
+        value = host.withEngine { it.db.kvGet("device", "role") }
     }
     var confirmRestore by remember { mutableStateOf(false) }
     val i = info ?: return
     var name by remember(i.third) { mutableStateOf(i.third ?: i.first) }
 
-    val checklist = remember(checkTick) { permissionsChecklist(context) { notifPermission.launch(it) } }
+    // Keyed on `refresh` as well: the Grant/Allow buttons leave for a system
+    // screen, so the state changes while this composition is alive and the
+    // checklist has to re-read it on resume (C4 F5).
+    val checklist = remember(checkTick, refresh) { permissionsChecklist(context) { notifPermission.launch(it) } }
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -298,8 +363,13 @@ fun SettingsScreen(host: EngineHost, refresh: Int, bump: () -> Unit) {
         HorizontalDivider()
         OutlinedButton(onClick = { SyncWorker.syncNow(context) }) { Text("Sync now") }
         Text(
-            if (role == "primary") "Snapshot role: primary (this device zips the cloud folder weekly)"
-            else "Snapshot role: none (another device holds primary)",
+            when {
+                role == "primary" -> "Snapshot role: primary (this device zips the cloud folder weekly)"
+                // Before the first sync nothing has been claimed by anyone;
+                // claiming otherwise is a guess about a cloud we never read (C4 F6).
+                role == null -> "Snapshot role: not claimed yet (no sync has run)"
+                else -> "Snapshot role: none (another device holds primary)"
+            },
             style = MaterialTheme.typography.bodySmall,
         )
         TextButton(onClick = { confirmRestore = true }) { Text("Restore cloud from local cache…") }
@@ -330,6 +400,22 @@ fun SettingsScreen(host: EngineHost, refresh: Int, bump: () -> Unit) {
         }
 
         ScheduleSection(host, refresh)
+        CrashSection()
+    }
+}
+
+/** Last uncaught exception, if any (see [CrashLog]). */
+@Composable
+private fun CrashSection() {
+    val context = LocalContext.current
+    var crash by remember { mutableStateOf(CrashLog.read(context)) }
+    val text = crash ?: return
+    HorizontalDivider()
+    Text("Last crash", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error)
+    Text(text.lineSequence().take(12).joinToString("\n"), style = MaterialTheme.typography.bodySmall)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = { CrashLog.share(context, text) }) { Text("Share") }
+        TextButton(onClick = { CrashLog.clear(context); crash = null }) { Text("Dismiss") }
     }
 }
 
@@ -354,7 +440,17 @@ fun permissionsChecklist(context: Context, requestNotif: (String) -> Unit): List
     )
     if (Build.VERSION.SDK_INT >= 31) {
         items.add(
-            ChecklistItem("Exact alarms", am.canScheduleExactAlarms(), "Allow") {
+            // Name the consequence: without it pings drift, they do not stop
+            // (measured ~10 min of slack on a 60-minute window) — C5 F5.
+            ChecklistItem(
+                if (am.canScheduleExactAlarms()) {
+                    "Exact alarms"
+                } else {
+                    "Exact alarms — off: pings arrive minutes late, not on the second"
+                },
+                am.canScheduleExactAlarms(),
+                "Allow",
+            ) {
                 context.startActivity(
                     Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
                         .setData(Uri.parse("package:${context.packageName}"))
@@ -390,7 +486,9 @@ private fun ScheduleSection(host: EngineHost, refresh: Int) {
     val lines by produceState<List<String>?>(null, refresh) {
         value = host.withEngine { engine ->
             engine.db.dueSchedule("9999").map {
-                "${localDateTime(engine, parseUtc(it.scheduledUtc))}  ${it.stream}" +
+                val name = engine.streamConfig(it.stream, parseUtc(it.scheduledUtc))
+                    ?.str("name") ?: it.stream
+                "${localDateTime(engine, parseUtc(it.scheduledUtc))}  $name" +
                     (it.suppressedReason?.let { r -> "  [$r]" } ?: "")
             }
         }
