@@ -86,6 +86,8 @@ fun inQuietZone(epoch: Long, zones: List<JsonObject>, zone: ZoneId): Boolean {
     return false
 }
 
-fun utcDayOf(epoch: Long): LocalDate = LocalDate.ofInstant(Instant.ofEpochSecond(epoch), ZoneOffset.UTC)
+// Not LocalDate.ofInstant: that is a Java 9 API, absent from Android < 14.
+fun utcDayOf(epoch: Long): LocalDate =
+    Instant.ofEpochSecond(epoch).atZone(ZoneOffset.UTC).toLocalDate()
 
 fun utcMidnight(day: LocalDate): Long = day.atStartOfDay(ZoneOffset.UTC).toEpochSecond()

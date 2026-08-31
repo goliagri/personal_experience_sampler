@@ -4,9 +4,11 @@
 // (BundledSQLiteDriver) and inside the Android app.
 plugins {
     kotlin("jvm")
+    id("ru.vyarus.animalsniffer") // Android minSdk API guard; see root build file
 }
 
 dependencies {
+    signature("com.toasttab.android:gummy-bears-api-29:0.12.0@signature")
     api(project(":core"))
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     api("androidx.sqlite:sqlite-bundled:2.5.2")

@@ -1,8 +1,10 @@
 plugins {
     kotlin("jvm")
+    id("ru.vyarus.animalsniffer") // Android minSdk API guard; see root build file
 }
 
 dependencies {
+    signature("com.toasttab.android:gummy-bears-api-29:0.12.0@signature")
     // Tree API only (Json.parseToJsonElement); no serialization compiler plugin needed.
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     testImplementation(kotlin("test"))

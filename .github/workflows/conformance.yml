@@ -27,4 +27,4 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - run: cd android && ./gradlew :core:test :runtime:test --console=plain
+      - run: cd android && ./gradlew :core:check :runtime:check --console=plain

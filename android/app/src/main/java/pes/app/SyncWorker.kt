@@ -30,8 +30,17 @@ import pes.store.DriveStore
 class SyncWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     override fun doWork(): Result {
         val context = applicationContext
-        if (!DriveConnection.connected(context)) return Result.success()
         val db = Db(File(context.filesDir, "pes.sqlite").path)
+        // "Sync now" used to return silently when no Drive account was
+        // connected — no toast, no status line, nothing (Tier 3 charter C5 F1),
+        // and "Restore cloud from local cache" was silent the same way.
+        if (!DriveConnection.connected(context)) {
+            runCatching {
+                db.kvSet("sync_meta", "last_sync_error", "Not connected to Google Drive — connect it in Settings")
+                db.close()
+            }
+            return Result.success()
+        }
         try {
             val deviceId = db.kvGet("device", "device_id") ?: return Result.success()
             val notifier = AndroidNotifier(context)
@@ -60,8 +69,10 @@ class SyncWorker(context: Context, params: WorkerParameters) : Worker(context, p
             // Imported events may change pending samples; move the alarm.
             Alarms.schedule(context, engine.nextWake(engine.clock.now()))
             return Result.success()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Surface the failure in Settings instead of dying silently.
+            // Throwable, not Exception: a linkage error (e.g. NoSuchMethodError
+            // from an API missing on this Android version) must surface too.
             runCatching { db.kvSet("sync_meta", "last_sync_error", e.toString().take(500)) }
             return if (e is IOException) Result.retry() else Result.failure()
         } finally {
