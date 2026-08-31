@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import pytest
+from pes.core.tags import invalid_tags, normalize_tag, split_tags
 from pes.store import LocalFolderStore
 from pes.ui.surveys import validate_survey
-from pes.ui.widgets import invalid_tags, split_tags
 
 
 def test_local_folder_store_roundtrip(tmp_path):
@@ -67,3 +67,17 @@ def test_validate_survey():
     errors = validate_survey(dup)
     assert any("duplicate" in e for e in errors)
     assert any("options" in e for e in errors)
+
+
+def test_tags_are_case_folded_on_ingest():
+    """Spec §7 / Tier 3 charter C1 F6: the notification reply box is drawn by
+    the system IME, which capitalises the first word and cannot be told not to.
+    Folding on ingest is what stops `email` and `Email` becoming two rows in
+    `tag_vocab` depending on which answer path was used."""
+    assert split_tags("Email Work.Writing  coding") == ["email", "work.writing", "coding"]
+    assert normalize_tag("EMAIL") == "email"
+    # Folding does not make an invalid tag valid, and order is preserved.
+    assert invalid_tags("ok Bad!Tag also_fine") == ["bad!tag"]
+    assert split_tags("") == []
+    # Duplicates that differ only by case collapse to the same tag.
+    assert len(set(split_tags("Email email EMAIL"))) == 1

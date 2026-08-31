@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import re
 import tkinter as tk
 from tkinter import ttk
 
-TAG_RE = re.compile(r"^[A-Za-z0-9_.\-]{1,64}$")
+from ..core.tags import invalid_tags, normalize_tag, split_tags
 
 
 class ScrollFrame(ttk.Frame):
@@ -39,12 +38,9 @@ class ScrollFrame(ttk.Frame):
         self.canvas.yview_scroll(delta, "units")
 
 
-def split_tags(text: str) -> list[str]:
-    return [t for t in text.split() if t]
-
-
-def invalid_tags(text: str) -> list[str]:
-    return [t for t in split_tags(text) if not TAG_RE.match(t)]
+# `split_tags` / `invalid_tags` are re-exported from the core (spec §7) so
+# there is exactly one definition of the rule across both clients.
+__all__ = ["ScrollFrame", "TagEntry", "invalid_tags", "normalize_tag", "split_tags"]
 
 
 class TagEntry(ttk.Frame):
@@ -53,7 +49,9 @@ class TagEntry(ttk.Frame):
     def __init__(self, parent, suggest, curated: list[str] | None = None):
         super().__init__(parent)
         self.suggest = suggest  # (prefix) -> list[str]
-        self.curated = curated
+        # Tags are folded on ingest, so the curated list must be compared
+        # folded too or a capitalised entry could never match.
+        self.curated = None if curated is None else [normalize_tag(t) for t in curated]
         self.entry = ttk.Entry(self)
         self.entry.pack(fill="x")
         self.listbox: tk.Listbox | None = None
