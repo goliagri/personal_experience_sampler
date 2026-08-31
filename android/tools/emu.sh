@@ -20,6 +20,8 @@ case "$cmd" in
   stop)    adb emu kill >/dev/null 2>&1 || true ;;
   install) (cd "$HERE/.." && ./gradlew -q :app:installDebug) && adb shell am start -n $PKG/.MainActivity >/dev/null && echo installed+launched ;;
   launch)  adb shell am start -n $PKG/.MainActivity ;;
+  ctest)   (cd "$HERE/.." && ./gradlew -q :app:connectedDebugAndroidTest "$@") ;;   # Compose UI tests (androidTest)
+  dtest)   (cd "$HERE/../tests/device" && python3 -m pytest "$@") ;;                # on-device pytest suite
   shot)    f="$OUT/${1:-shot}.png"; adb exec-out screencap -p >"$f"; echo "$f" ;;   # view with Read tool
   ui)      adb exec-out uiautomator dump /dev/tty 2>/dev/null | sed 's/></>\n</g' | grep -oE '(text|content-desc|resource-id)="[^"]+"|bounds="[^"]+"' ;;
   tap)     adb shell input tap "$1" "$2" ;;
@@ -34,7 +36,21 @@ case "$cmd" in
   undoze)  adb shell dumpsys deviceidle unforce; adb shell dumpsys battery reset ;;
   settime) adb root >/dev/null; adb shell "date -s '$1'"; echo "device now $(adb shell date)" ;;  # e.g. '2026-08-29 14:32:00'
   reset)   adb shell pm clear $PKG ;;
-  db)      adb exec-out run-as $PKG cat files/pes.sqlite >"$OUT/pes.db" 2>/dev/null || adb exec-out "su root cat /data/data/$PKG/files/pes.sqlite" >"$OUT/pes.db"; echo "$OUT/pes.db" ;;
+  reboot)  sleep 12; adb reboot; sleep 5; adb wait-for-device   # 12s: let PackageManager flush its (lazy) settings first
+           until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]; do sleep 2; done
+           adb root >/dev/null; adb wait-for-device; adb shell input keyevent 82 >/dev/null; echo rebooted ;;
+  shade)   adb shell cmd statusbar expand-notifications ;;
+  unshade) adb shell cmd statusbar collapse ;;
+  uixml)   adb exec-out uiautomator dump /dev/tty 2>/dev/null | sed 's/UI hierchary dumped.*$//' ;;
+  serial)  adb get-serialno ;;
+  db)      # the app never checkpoints: pull the -wal alongside or the copy reads back EMPTY
+           for sfx in "" "-wal"; do
+             adb exec-out "su root cat /data/data/$PKG/files/pes.sqlite$sfx" >"$OUT/pes.db$sfx" 2>/dev/null || true
+             [ -s "$OUT/pes.db$sfx" ] || rm -f "$OUT/pes.db$sfx"
+           done; echo "$OUT/pes.db" ;;
+  root)    for i in 1 2 3 4 5; do adb root >/dev/null 2>&1 && break; sleep 2; done; sleep 1; adb wait-for-device; adb shell id | grep -q root ;;
+  push)    adb push "$1" "$2" ;;
+  seed)    python3 "$HERE/emu_seed.py" --push "$@" ;;   # isolated dev config: Poisson + fixed streams, full survey
   shell)   adb shell "$@" ;;
   *) sed -n '/^case/,/^esac/{s/^  \([a-z]*\)) *#* *\(.*\)$/\1  \2/p}' "$0" | grep -v '^\*' ;;
 esac

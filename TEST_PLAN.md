@@ -138,6 +138,66 @@ Multi-step sequences driven through the real sync/backfill/scheduler code with a
 
 ---
 
+## 2b. On-device scenarios (Android, headless emulator)
+
+`android/tests/device/` drives the *real* Android app (alarms, receivers, notifications, Compose screens) on a KVM-accelerated headless emulator through `android/tools/emu.sh`, with the device clock pinned per test and every assertion made on the pulled SQLite DB using the **desktop** implementation — so each test is also a cross-implementation check. Setup: `android/tools/emu-setup.sh` once; run `cd android/tests/device && python -m pytest` (`--no-install` skips the Gradle build; `-m "not slow"` skips reboots). Seeds come from `android/tools/emu_seed.py` (isolated dev DB, device id `emu-pes`; never the owner's data or Drive). Failing tests leave a screenshot, UI dump and crash log in `.emu/device-tests/`.
+
+**Alarms (`test_alarms.py`)**
+- [x] One exact `RTC_WAKEUP` alarm at the engine's next wake, `window=0`; position equals the desktop engine's `tick()` result for the same DB and clock.
+- [x] **[H]** Ping fires with the process killed and the device in forced Doze; `fired.scheduled` is the original time.
+- [x] Expiry alarm logs `expired`, cancels the notification, and the sample appears only under "Backlog", never on Home's active card.
+- [x] **[H]** Reboot across a ping (BOOT_COMPLETED): inside the active window the ping fires late and the alarm is re-armed without opening the app; past the window it is classified `unobserved` with no notification.
+- [x] Clock set backwards does not fire; alarm keeps its instant. Long gap → `unobserved`, never a stale fire. Disabled stream produces no schedule rows.
+
+**Notifications (`test_notifications.py`)**
+- [x] Content: stream name, "Ping at HH:MM - answer now"; shade shows exactly `Reply tags / Snooze / Skip` (Android renders ≤3 actions; "Open" appears only when no inline reply is offered, since tapping the body opens the sample).
+- [x] Skip / Snooze from the shade: events, notification cancelled, alarm at `until`; re-fire title "(snoozed xN)" keeps the original time.
+- [x] Snooze refused at `max_snoozes` and within `snooze_minutes` of expiry: no event, notification stays.
+- [x] **[H]** Inline reply: `answered` with `partial: true` and only the tags field; an all-invalid reply creates nothing; not offered when another field is `required`.
+- [x] Two streams at the same instant: two notifications, distinct ids and titles.
+
+**Screens (`test_ui.py`)**
+- [x] Home re-queries on resume (no stale "No active ping" after a ping fires in the background).
+- [x] Answer screen: header + scheduled time, Snooze/Skip at top, fields in schema order, Submit with the time repeated; full survey submit round-trips every field type into the `answered` event and returns to Home; required field blocks submit.
+- [x] **[H]** Late answer only via Backlog/History: header text, original time in large type, LATE banner with "N h ago", no Snooze/Skip; fold marks `late`.
+- [x] Quiet mode toggle → `suppressed(quiet_mode)`, no notification. "Fire test ping now" → `fired.test=true`. History filter chips. Permissions checklist tracks revocation/grant, and scheduling degrades to inexact (window>0) rather than crashing when exact alarms are denied.
+
+**Conformance (`test_conformance.py`)**
+- [x] **[H]** Materialized `schedule` rows (Poisson + fixed + quiet zone + disabled) are identical between the phone and the desktop engine.
+- [x] **[H]** The phone's own event log, re-folded by the desktop core, equals the phone's `samples` row (snooze → expire → late answer).
+- [x] Backfill events after a gap match the desktop engine's for the same gap.
+
+**Compose screen tests (`android/app/src/androidTest/`, `./gradlew :app:connectedDebugAndroidTest` / `emu.sh ctest`, ~2 min)** — each screen composed over an `EngineHost` on a temp DB with a `FakeClock` (same 11:55/12:00 scenario as above), so layout and validation are asserted deterministically without adb: Answer (field order, every validation message, single/multi choice, LATE banner text "3 h ago", Snooze/Skip hidden when late or from Backlog, refusal notice, unknown-stream failure text, tag-suggestion chips, slider end labels, quick presentation via `full_survey_every_n`), Home (idle/empty/active/backlog/quiet states, navigation), Backlog/History (grouping, window exclusion, filters, Retract, Answer late), Streams/Settings (test ping, identity, checklist, schedule reveal, device name), MainActivity (notification intent → Answer, unknown sample renders a message).
+
+Not covered here (needs a physical device): OEM battery managers, Doze *timing* fidelity, Play-verified OAuth consent, multi-day battery drain — see §4.
+
+### 2c. Exploratory charters (Tier 3)
+
+Tiers 1 and 2 check what we already thought of. Tier 3 is an agent *using* the app on the emulator
+against a written charter, hunting what no test covers; its output is a findings file, and every
+confirmed finding is converted into a Tier 1 or Tier 2 test so it cannot regress silently. The
+charters, ground rules (one consumer on the emulator at a time; seeded dev DB only; screenshots as
+evidence; report-only) and the finding format live in `android/tests/exploratory/CHARTERS.md`;
+results live in `android/tests/exploratory/findings/`.
+
+- [x] **C1 — the answer flow as it is lived in**: focus, keyboard occlusion, tap/keystroke budget,
+      suggestions, repeated use.
+- [x] **C2 — old sample vs. new sample**: every route to an Answer screen, hunting a late ping that
+      could pass for fresh. **[H]** (the one hard UI requirement, preferences §2 / §10.4)
+- [x] **C3 — honest accounting under adversity**: kills, reboot, Doze, clock jumps both ways, quiet
+      mode; every phone state cross-checked against the desktop engine's own fold. **[H]**
+- [x] **C4 — config surfaces and the "no peeking" rule**: Home/Streams/Settings correctness and
+      staleness, quiet-mode variants, permissions checklist truthfulness.
+- [x] **C5 — failure and degradation**: airplane mode, no Drive, revoked permissions, unwritable DB,
+      unknown protocol type — local-first must hold and sync failures must be visible.
+- [x] **C6 — presentation**: dark/light, large font scale, rotation, unicode and oversized input.
+
+A charter is re-runnable: re-read its file, re-seed, and go looking again. Re-run one whenever its
+area changes substantially — C1/C6 after Answer-screen work, C3 after any engine change, C5 after
+sync work.
+
+---
+
 ## 3. Property-based tests
 
 Run with generated event logs / configs (both languages where the subject is shared core; Python-only acceptable for store-level properties).
@@ -158,11 +218,9 @@ Run with generated event logs / configs (both languages where the subject is sha
 Not automated; run before each tagged release on the real target devices (Samsung Galaxy for Android; Windows, then Linux, for desktop).
 
 **Android**
-- [ ] Ping fires within seconds of schedule with app swiped away, screen off, in Doze (leave idle ≥1 h).
+- [ ] Ping fires within seconds of schedule in *real* Doze (leave idle ≥1 h; the emulator only forces idle instantly — §2b covers the mechanism).
 - [ ] Survives Samsung battery management with the documented settings (never-sleeping apps); permissions checklist correctly detects each missing grant.
-- [ ] `BOOT_COMPLETED`: reboot phone across a scheduled ping → ping appears as backfilled, next pings reschedule.
-- [ ] Notification: inline tags reply submits `partial` answer; Open/Snooze/Skip actions; snoozed notification shows "snoozed ×n" + original time; two near-simultaneous streams both visible and distinguishable.
-- [ ] Expiry alarm cancels the notification.
+- [ ] Notification look-and-feel on the OEM shade (mechanics are covered on the emulator, §2b).
 - [ ] Drive OAuth: first-run consent (production screen, no unverified warning), token survives >7 days, revoke-and-reconnect works.
 - [ ] Location `coarse`/`precise` capture and the no-permission fallback; battery drain over 48 h of normal pinging is negligible.
 

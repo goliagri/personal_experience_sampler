@@ -13,10 +13,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Commands:
 
 - Python tests: `cd desktop && python -m pytest` (needs `pytest hypothesis requests`; subsets: `tests/conformance`, `tests/properties`, `tests/scenarios`; single test: `python -m pytest tests/scenarios/test_expiry_snooze.py::test_fire_expire_backlog`).
-- Kotlin tests: `cd android && ./gradlew :core:test :runtime:test` (JDK 17+; `:runtime:test` is the mirrored scenario suite). Android build: `./gradlew :app:assembleDebug` (SDK auto-installs to the path in `local.properties`).
+- Kotlin tests: `cd android && ./gradlew :core:check :runtime:check` (JDK 17+; `:runtime:test` is the mirrored scenario suite; `:check` additionally runs Animal Sniffer, which verifies the pure-JVM modules only use APIs present at Android minSdk 29 — JVM tests and the API-35 emulator can't catch e.g. Java 9 `LocalDate.ofInstant`, which crashed on real phones). Android build: `./gradlew :app:assembleDebug` (SDK auto-installs to the path in `local.properties`).
 - Regenerate conformance vectors (from repo root): `python3 spec/tools/generate_vectors.py` — only alongside a reviewed core change, and any core change must keep **both** languages' cores and suites in step.
 - Run the desktop app: `cd desktop && python -m pes` (`--data-dir`, `--cloud-dir`).
 - Lint: `ruff check desktop/pes desktop/tests`.
+- On-device Android tests (headless emulator, needs `android/tools/emu-setup.sh` once + KVM): `cd android/tests/device && python -m pytest` (`--no-install` to skip the APK build, `-m "not slow"` to skip reboots). Ad-hoc driving: `android/tools/emu.sh {start|install|seed|shot|ui|tap|type|log|alarms|notifs|doze|settime|db|reboot}`; `emu.sh seed` pushes an isolated dev DB built by `emu_seed.py` (device id `emu-pes`, never the owner's data). Screenshots land in `.emu/`.
+- Compose screen tests: `cd android && ./gradlew :app:connectedDebugAndroidTest` (or `emu.sh ctest`) — needs the emulator, ~1 min.
+- Exploratory QA (Tier 3): `android/tests/exploratory/CHARTERS.md` defines six charters an agent runs against the emulator; results in `findings/`, and every confirmed finding becomes a Tier 1/2 test (TEST_PLAN §2c). One consumer on the emulator at a time — never overlap a charter, `dtest` and `ctest`.
 
 Key desktop layering: `pes/core/` is pure and deterministic (mirrored file-for-file by `android/core`); `pes/engine.py` is the headless runtime (injected clock + notifier — scenario tests drive it with `FakeClock`/`RecordingNotifier`, two SimDevices sharing one folder); `pes/sync.py` implements §8.4 over `pes/store/cloud.py`'s `CloudStore`; `pes/ui/` (tkinter) and `pes/tray.py` sit on top and contain no scheduling/fold logic.
 

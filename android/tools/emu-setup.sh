@@ -12,7 +12,7 @@ test -w /dev/kvm || { echo "!! /dev/kvm not writable: sudo usermod -aG kvm \$USE
 if [ ! -x "$SDK/cmdline-tools/latest/bin/sdkmanager" ]; then
   tmp="$(mktemp -d)"
   curl -sSLo "$tmp/ct.zip" https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-  unzip -qo "$tmp/ct.zip" -d "$tmp"
+  if command -v unzip >/dev/null; then unzip -qo "$tmp/ct.zip" -d "$tmp"; else python3 -c "import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$tmp/ct.zip" "$tmp"; chmod +x "$tmp"/cmdline-tools/bin/*; fi
   mkdir -p "$SDK/cmdline-tools"; rm -rf "$SDK/cmdline-tools/latest"; mv "$tmp/cmdline-tools" "$SDK/cmdline-tools/latest"
 fi
 SM="$SDK/cmdline-tools/latest/bin/sdkmanager"
