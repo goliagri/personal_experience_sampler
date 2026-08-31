@@ -91,6 +91,17 @@ class ExpirySnoozeScenarioTest {
         assertEquals(listOf("fired"), dev.sampleEvents(SAMPLE).map { it.str("ev") })
     }
 
+    /** Past the window the sample is dead, not merely un-snoozeable (C2 F4). */
+    @Test
+    fun `snooze after expiry is refused as expired`() {
+        val dev = mkdevice("laptop-bbbb0005")
+        dev.boot(baseConfig(listOf(fixedStream())))
+        tickedTo(listOf(dev), clock, "2026-08-24T17:30:00Z") // expiry was 17:00
+
+        assertEquals("expired", dev.engine.snooze(SAMPLE))
+        assertEquals(listOf("fired", "expired"), dev.sampleEvents(SAMPLE).map { it.str("ev") })
+    }
+
     @Test
     fun `snooze refused at max`() {
         val dev = mkdevice("laptop-bbbb0004")

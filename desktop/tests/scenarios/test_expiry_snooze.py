@@ -73,6 +73,17 @@ def test_snooze_refused_near_expiry(mkdevice, clock):
     assert [ev["ev"] for ev in dev.sample_events(SAMPLE)] == ["fired"]
 
 
+def test_snooze_refused_after_expiry_says_expired(mkdevice, clock):
+    """Past the window the sample is dead: "too close to expiry" would be the
+    last thing the user hears about a ping that is already gone (Tier 3 C2 F4)."""
+    dev = mkdevice("laptop-bbbb0005")
+    dev.boot(base_config([fixed_stream()]))
+    ticked_to(dev, clock, "2026-08-24T17:30:00Z")  # expiry was 17:00
+
+    assert dev.engine.snooze(SAMPLE) == "expired"
+    assert [ev["ev"] for ev in dev.sample_events(SAMPLE)] == ["fired", "expired"]
+
+
 def test_snooze_refused_at_max(mkdevice, clock):
     dev = mkdevice("laptop-bbbb0004")
     config = base_config([fixed_stream(overrides={"expiry_minutes": 120})])

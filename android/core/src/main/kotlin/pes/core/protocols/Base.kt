@@ -29,6 +29,10 @@ fun register(protocolType: String, fn: GenerateFn) {
 
 fun getProtocol(protocolType: String): GenerateFn = registry.getValue(protocolType)
 
+/** Total lookup: an unknown protocol type is a config this build cannot
+ * compute, not a reason to crash on every tick (Tier 3 charter C5 F2/F6). */
+fun getProtocolOrNull(protocolType: String): GenerateFn? = registry[protocolType]
+
 /** Idempotent registration of the v1 protocols. */
 fun registerAll() {
     register("poisson", ::generatePoisson)

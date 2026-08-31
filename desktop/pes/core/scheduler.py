@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from datetime import date
 from zoneinfo import ZoneInfo
 
-from .protocols import get_protocol
+from .protocols import get_protocol_or_none
 from .timeutil import in_quiet_zone, local_day_bounds, parse_utc
 
 
@@ -85,7 +85,11 @@ def resolve_day(
         clipped = [(lo, hi) for lo, hi in clipped if lo < hi]
         if not clipped:
             continue
-        generate = get_protocol(stream["protocol"]["type"])
+        # A stream whose protocol this build does not know generates nothing;
+        # the other streams keep working and the clients report it (C5 F2).
+        generate = get_protocol_or_none(stream["protocol"]["type"])
+        if generate is None:
+            continue
         for cand in generate(stream["protocol"], stream["seed"], local_day, tz):
             if any(lo <= cand.utc < hi for lo, hi in clipped):
                 raw.append((cand.utc, cand.dst_gap, config["version"]))

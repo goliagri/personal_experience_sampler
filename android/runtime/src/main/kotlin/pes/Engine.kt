@@ -34,6 +34,7 @@ import pes.core.objList
 import pes.core.optObj
 import pes.core.optStr
 import pes.core.parseUtc
+import pes.core.protocols.getProtocolOrNull
 import pes.core.resolveDay
 import pes.core.str
 import pes.core.validateConfig
@@ -74,6 +75,40 @@ class Engine(
      * before its effective_from; scheduling never goes through this — it
      * resolves the config history itself, so effective_from still gates
      * real pings. */
+    /**
+     * Problems with the config this device is *currently running*.
+     *
+     * `validateConfig` guards the apply path, but a config can reach
+     * `config_cache` another way — an older build, a hand edit, a document
+     * written by a newer client. Re-checking what we actually run means the
+     * clients can take what they understand and say what they cannot, rather
+     * than failing in whatever way the unknown part happens to fail
+     * (Tier 3 charter C5 F6).
+     */
+    fun configIssues(now: Long): List<String> {
+        val config = configAt(now) ?: return emptyList()
+        return unknownProtocolStreams(now).map { "$it: this client cannot compute that protocol" } +
+            // `now = null`: the effective_from rules are apply-time rules ("you
+            // may not stage a config that took effect in the past"), and a
+            // config we are already running has necessarily taken effect.
+            validateConfig(config, db.allSurveys().keys.toList(), null)
+    }
+
+    /**
+     * Enabled streams in the current config whose protocol type this build
+     * cannot compute. They silently generate nothing (the scheduler skips
+     * them rather than throwing), so the clients must say so — otherwise a
+     * config from a newer client looks like a stream that simply stopped
+     * pinging (Tier 3 charter C5 F2/F6).
+     */
+    fun unknownProtocolStreams(now: Long): List<String> {
+        val config = configAt(now) ?: return emptyList()
+        return config.objList("streams")
+            .filter { it.bool("enabled", true) }
+            .filter { getProtocolOrNull(it.obj("protocol").str("type")) == null }
+            .map { "${it.str("name")} (${it.obj("protocol").str("type")})" }
+    }
+
     fun streamConfig(streamId: String, instant: Long): JsonObject? =
         listOfNotNull(configAt(instant), db.latestConfig()).firstNotNullOfOrNull { config ->
             config.objList("streams").firstOrNull { it.str("id") == streamId }
@@ -265,13 +300,44 @@ class Engine(
         return out.sortedBy { it.str("scheduled_utc") }
     }
 
-    /** Rebuild the 48 h schedule horizon from the config history. */
+    /** Rebuild the 48 h schedule horizon from the config history.
+     *
+     * The window starts one max-expiry *behind* now: a sample whose active
+     * window is still open must stay in the schedule so the live scheduler
+     * can fire it late after a restart/reboot/clock jump (backfill defers
+     * exactly these samples to us, §6.4). */
+    /**
+     * How far behind the materialization watermark `now` may fall before the
+     * clock is treated as stale rather than merely corrected. The watermark
+     * already trails now by one max-expiry, so this is slack on top of that.
+     */
+    private val staleClockSlackS = 6 * 3600L
+
+    /** True when `now` is implausibly far behind what we already scheduled. */
+    private fun clockIsStale(now: Long): Boolean {
+        val wmIso = db.kvGet("sync_meta", "last_materialized_at") ?: return false
+        return now + staleClockSlackS < parseUtc(wmIso)
+    }
+
     fun materialize() {
         val now = clock.now()
-        val rows = resolvedWindow(now, now + HORIZON_S).map { r ->
+        // A clock that has jumped *backwards* (a reboot restoring a stale RTC
+        // before network time lands) would otherwise rebuild the horizon around
+        // the wrong instant, leaving an empty schedule and no armed alarm until
+        // TIME_SET arrives. Keep what we have (Tier 3 charter C3 F3).
+        if (clockIsStale(now)) return
+        val rows = resolvedWindow(now - maxExpiryS(now), now + HORIZON_S).map { r ->
             val types = db.eventsForSample(r.str("sample")).map { it.third.str("ev") }.toSet()
+            // `unobserved` is terminal too (§6.4): backfill classifies a window
+            // that closed with nothing running. Leaving it out let a backward
+            // clock jump re-open the window and fire a ping that was already
+            // accounted for, yielding `status: unobserved, observed: true`
+            // (Tier 3 charter C3 F1).
             val done = types.intersect(
-                setOf("fired", "answered", "skipped", "expired", "retracted", "suppressed")
+                setOf(
+                    "fired", "answered", "skipped", "expired",
+                    "retracted", "suppressed", "unobserved",
+                )
             ).isNotEmpty()
             JsonObject(r + mapOf("state" to JsonPrimitive(if (done) "done" else "planned")))
         }
@@ -284,6 +350,9 @@ class Engine(
         }
         db.kvSet("sync_meta", "materialized_until", fmtUtc(now + HORIZON_S))
     }
+
+    private fun maxExpiryS(now: Long): Long =
+        (streamIds().maxOfOrNull { effectiveSettings(it, now).int("expiry_minutes") } ?: 60) * 60L
 
     // -- backfill (§6.4) --------------------------------------------------
 
@@ -332,7 +401,13 @@ class Engine(
             configV = config?.int("version") ?: 0,
             expiryMinutesFor = expiries,
         )
-        for (ev in emitted) appendEvent(ev)
+        for (ev in emitted) {
+            appendEvent(ev)
+            // A retroactively expired/suppressed sample may still have its
+            // "answer now" notification up (reboot or clock jump past expiry
+            // bypasses the live expiry tick).
+            notifier.cancel(ev.str("sample"))
+        }
         val lookbackS = (expiries.values.maxOrNull() ?: 60) * 60L
         db.kvSet("sync_meta", "last_materialized_at", fmtUtc(maxOf(wm, now - lookbackS)))
         return emitted
@@ -370,7 +445,9 @@ class Engine(
         val sampleId = due.sample
         val types = db.eventsForSample(sampleId).map { it.third.str("ev") }.toSet()
         val base = sampleBase(sampleId, now)
-        val terminal = types.intersect(setOf("answered", "skipped", "expired", "retracted", "suppressed"))
+        val terminal = types.intersect(
+            setOf("answered", "skipped", "expired", "retracted", "suppressed", "unobserved"),
+        )
         val scheduled = parseUtc(due.scheduledUtc)
         val expiryS = effectiveSettings(due.stream, scheduled).int("expiry_minutes") * 60L
 
@@ -537,6 +614,10 @@ class Engine(
         val settings = effectiveSettings(streamId, scheduled)
         val events = db.eventsForSample(sampleId).map { it.third }
         val n = events.count { it.str("ev") == "snoozed" } + 1
+        // Past the window the sample is dead, not merely un-snoozeable: say so,
+        // otherwise "too close to expiry" is the last thing the user is told
+        // about a ping that has already gone (Tier 3 charter C2 F4).
+        if (now >= scheduled + settings.int("expiry_minutes") * 60L) return "expired"
         if (n > settings.int("max_snoozes")) return "max_snoozes"
         val until = now + settings.int("snooze_minutes") * 60L
         if (until >= scheduled + settings.int("expiry_minutes") * 60L) return "near_expiry"

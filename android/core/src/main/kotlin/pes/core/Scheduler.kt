@@ -13,7 +13,7 @@ package pes.core
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.serialization.json.JsonObject
-import pes.core.protocols.getProtocol
+import pes.core.protocols.getProtocolOrNull
 import pes.core.protocols.registerAll
 
 data class ResolvedSample(
@@ -61,7 +61,9 @@ fun resolveDay(configHistory: List<JsonObject>, streamId: String, localDay: Loca
             .map { (lo, hi) -> Pair(maxOf(dayStart, lo), if (hi == null) dayEnd else minOf(dayEnd, hi)) }
             .filter { (lo, hi) -> lo < hi }
         if (clipped.isEmpty()) continue
-        val generate = getProtocol(stream.obj("protocol").str("type"))
+        // A stream whose protocol this build does not know generates nothing;
+        // the other streams keep working and the clients report it (C5 F2).
+        val generate = getProtocolOrNull(stream.obj("protocol").str("type")) ?: continue
         for (cand in generate(stream.obj("protocol"), stream.str("seed"), localDay, zone)) {
             if (clipped.any { (lo, hi) -> cand.utc in lo until hi }) {
                 raw.add(Raw(cand.utc, cand.dstGap, config.int("version")))

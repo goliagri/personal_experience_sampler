@@ -62,6 +62,49 @@ def test_open_window_still_fires_after_short_sleep(mkdevice, clock):
     assert DAY1_0900 in dev.notifier.active()
 
 
+def test_open_window_still_fires_after_restart(mkdevice, clock):
+    """Like the short-sleep case, but via the *start* path (reboot, TIME_SET,
+    app relaunch): re-materialization must not drop a sample whose active
+    window is still open, or it silently becomes `unobserved` instead of
+    firing late."""
+    dev = mkdevice("laptop-aaaa0003")
+    dev.boot(base_config([fixed_stream()]))
+    dev.engine.tick()
+
+    clock.set(parse_utc("2026-08-24T16:30:00Z"))  # relaunched 30 min late; expiry 60
+    dev.engine.start()
+    dev.engine.tick()
+    events = dev.sample_events(DAY1_0900)
+    assert [ev["ev"] for ev in events] == ["fired"]
+    assert events[0]["t"] == "2026-08-24T16:30:00Z"
+    assert DAY1_0900 in dev.notifier.active()
+
+    # Past the window, the same path classifies it instead of firing.
+    clock.set(T0)
+    dev2 = mkdevice("laptop-aaaa0004")
+    dev2.boot(base_config([fixed_stream()]))
+    dev2.engine.tick()
+    clock.set(parse_utc("2026-08-24T17:30:00Z"))
+    dev2.engine.start()
+    dev2.engine.tick()
+    assert [ev["ev"] for ev in dev2.sample_events(DAY1_0900)] == ["unobserved"]
+
+
+def test_retroactive_expiry_cancels_notification(mkdevice, clock):
+    """Fired, then the clock jumps past expiry and the app *restarts*: the
+    expiry is logged by backfill, and the notification must come down."""
+    dev = mkdevice("laptop-aaaa0005")
+    dev.boot(base_config([fixed_stream()]))
+    clock.set(parse_utc("2026-08-24T16:00:00Z"))
+    dev.engine.tick()
+    assert DAY1_0900 in dev.notifier.active()
+
+    clock.set(parse_utc("2026-08-24T18:00:00Z"))
+    dev.engine.start()
+    assert [ev["ev"] for ev in dev.sample_events(DAY1_0900)] == ["fired", "expired"]
+    assert DAY1_0900 not in dev.notifier.active()
+
+
 def test_quiet_mode_window_backfills_suppressed(mkdevice, clock):
     dev = mkdevice("laptop-aaaa0004")
     dev.boot(base_config([fixed_stream()]))
@@ -100,3 +143,56 @@ def test_watermark_advances(mkdevice, clock):
     wm = dev.db.kv_get("sync_meta", "last_materialized_at")
     # Held back exactly one expiry (60 min) behind now.
     assert wm == fmt_utc(T0 + 24 * 3600 - 3600)
+
+
+def test_backward_jump_does_not_refire_an_unobserved_ping(mkdevice, clock):
+    """Tier 3 charter C3 F1: `unobserved` is terminal. A clock that goes
+    backwards re-opens the active window, and the sample used to fire again —
+    leaving one generated ping recorded as both `unobserved` and
+    `observed: true`, plus a permanent alarm for a ping already accounted for."""
+    dev = mkdevice("laptop-aaaa0005")
+    dev.boot(base_config([fixed_stream()]))
+    dev.engine.tick()
+
+    clock.advance(24 * 3600)  # both of Monday's pings pass with nothing running
+    dev.engine.tick()
+    assert [ev["ev"] for ev in dev.sample_events(DAY1_0900)] == ["unobserved"]
+
+    # Clock goes backwards to inside the 09:00 window, then forward a little.
+    clock.set(parse_utc(DAY1_0900.split("|", 1)[1]) + 60)
+    dev.engine.tick()
+    clock.advance(60)
+    dev.engine.tick()
+
+    assert [ev["ev"] for ev in dev.sample_events(DAY1_0900)] == ["unobserved"]
+    row = dev.db.sample_row(DAY1_0900)
+    assert row["status"] == "unobserved" and row["observed"] is False
+    assert DAY1_0900 not in dev.notifier.active()
+    # ...and it is no longer a candidate for the next exact alarm.
+    assert dev.engine._next_wake(dev.engine.clock.now()) != parse_utc(
+        DAY1_0900.split("|", 1)[1]
+    )
+
+
+def test_stale_clock_keeps_the_existing_horizon(mkdevice, clock):
+    """Tier 3 charter C3 F3: a reboot can restore an RTC days in the past
+    before network time lands. Rebuilding the horizon around that instant would
+    leave the device with an empty schedule and no armed alarm; keep what we
+    have until the clock is corrected."""
+    dev = mkdevice("laptop-aaaa0006")
+    dev.boot(base_config([fixed_stream()]))
+    dev.engine.tick()
+    planned = [r["sample"] for r in dev.db.due_schedule("9999")]
+    assert planned, "nothing scheduled to begin with"
+    wake_before = dev.engine._next_wake(dev.engine.clock.now())
+
+    clock.set(dev.engine.clock.now() - 3 * 24 * 3600)  # RTC three days behind
+    dev.engine.materialize()
+
+    assert [r["sample"] for r in dev.db.due_schedule("9999")] == planned
+    assert dev.engine._next_wake(clock.now()) == wake_before
+
+    # Once the clock is corrected the horizon rebuilds normally.
+    clock.set(dev.engine.clock.now() + 3 * 24 * 3600)
+    dev.engine.materialize()
+    assert dev.db.due_schedule("9999")

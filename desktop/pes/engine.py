@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo
 from .clock import SystemClock
 from .core.backfill import backfill as core_backfill
 from .core.fold import fold_sample
+from .core.protocols import get_protocol_or_none
 from .core.scheduler import resolve_day
 from .core.timeutil import fmt_utc, parse_utc
 from .notify import Notifier
@@ -50,6 +51,50 @@ class Engine:
             if parse_utc(doc["effective_from"]) <= instant:
                 effective = doc
         return effective or (history[0] if history else None)
+
+    def config_issues(self, now: int) -> list[str]:
+        """Problems with the config this device is *currently running*.
+
+        `validate_config` guards the apply path, but a config can reach
+        `config_cache` another way — an older build, a hand edit, a document
+        written by a newer client. Re-checking what we actually run means the
+        clients can take what they understand and say what they cannot, rather
+        than failing in whatever way the unknown part happens to fail
+        (Tier 3 charter C5 F6).
+        """
+        config = self.config_at(now)
+        if not config:
+            return []
+        issues = [
+            f"{name}: this client cannot compute that protocol"
+            for name in self.unknown_protocol_streams(now)
+        ]
+        known = list(self.db.all_surveys().keys())
+        from .core.config_validation import validate_config
+
+        # `now=None`: the effective_from rules are apply-time rules ("you may
+        # not stage a config that took effect in the past"), and a config we
+        # are already running has necessarily taken effect.
+        issues += validate_config(config, known, None)
+        return issues
+
+    def unknown_protocol_streams(self, now: int) -> list[str]:
+        """Enabled streams whose protocol type this build cannot compute.
+
+        They silently generate nothing (the scheduler skips them rather than
+        throwing), so the clients must say so — otherwise a config from a
+        newer client looks like a stream that simply stopped pinging
+        (Tier 3 charter C5 F2/F6).
+        """
+        config = self.config_at(now)
+        if not config:
+            return []
+        return [
+            f"{s.get('name', s['id'])} ({s['protocol']['type']})"
+            for s in config.get("streams", [])
+            if s.get("enabled", True)
+            and get_protocol_or_none(s.get("protocol", {}).get("type", "")) is None
+        ]
 
     def stream_config(self, stream_id: str, instant: int) -> dict | None:
         """Stream definition at an instant. Falls back to the latest staged
@@ -238,15 +283,50 @@ class Engine:
         out.sort(key=lambda r: r["scheduled_utc"])
         return out
 
+    #: How far behind the materialization watermark `now` may fall before the
+    #: clock is treated as stale rather than merely corrected. The watermark
+    #: already trails now by one max-expiry, so this is slack on top of that.
+    STALE_CLOCK_SLACK_S = 6 * 3600
+
+    def _clock_is_stale(self, now: int) -> bool:
+        """True when `now` is implausibly far behind what we already scheduled."""
+        wm_iso = self.db.kv_get("sync_meta", "last_materialized_at")
+        if wm_iso is None:
+            return False
+        return now + self.STALE_CLOCK_SLACK_S < parse_utc(wm_iso)
+
     def materialize(self) -> None:
-        """Rebuild the 48 h schedule horizon from the config history."""
+        """Rebuild the 48 h schedule horizon from the config history.
+
+        The window starts one max-expiry *behind* now: a sample whose active
+        window is still open must stay in the schedule so the live scheduler
+        can fire it late after a restart/reboot/clock jump (backfill defers
+        exactly these samples to us, §6.4).
+
+        A clock that has jumped *backwards* (a reboot restoring a stale RTC
+        before the network time lands) would otherwise rebuild the horizon
+        around the wrong instant and leave the device with an empty schedule
+        and no armed alarm until TIME_SET arrives. Keep the existing horizon
+        instead and wait for the clock to be corrected (Tier 3 charter C3 F3).
+        """
         now = self.clock.now()
+        if self._clock_is_stale(now):
+            return
         rows = []
-        for r in self._resolved_window(now, now + HORIZON_S):
+        for r in self._resolved_window(now - self._max_expiry_s(now), now + HORIZON_S):
             events = self.db.events_for_sample(r["sample"])
             types = {ev["ev"] for _f, _l, ev in events}
+            # `unobserved` is terminal too (§6.4): backfill classifies a window
+            # that closed with nothing running. Leaving it out let a backward
+            # clock jump re-open the window and fire a ping that was already
+            # accounted for, yielding `status: unobserved, observed: true`
+            # (Tier 3 charter C3 F1).
             done = bool(
-                types & {"fired", "answered", "skipped", "expired", "retracted", "suppressed"}
+                types
+                & {
+                    "fired", "answered", "skipped", "expired",
+                    "retracted", "suppressed", "unobserved",
+                }
             )
             rows.append({**r, "state": "done" if done else "planned"})
         self.db.replace_schedule(rows)
@@ -257,6 +337,12 @@ class Engine:
             local_day = datetime.fromtimestamp(now, UTC).astimezone(tz).date()
             self.db.kv_set("sync_meta", "materialized_day", local_day.isoformat())
         self.db.kv_set("sync_meta", "materialized_until", fmt_utc(now + HORIZON_S))
+
+    def _max_expiry_s(self, now: int) -> int:
+        expiries = [
+            self.effective_settings(s, now)["expiry_minutes"] for s in self._stream_ids()
+        ]
+        return max(expiries, default=DEFAULTS["expiry_minutes"]) * 60
 
     # -- backfill (§6.4) --------------------------------------------------
 
@@ -298,12 +384,12 @@ class Engine:
         )
         for ev in emitted:
             self.append_event(ev)
-        expiries = [
-            self.effective_settings(s, now)["expiry_minutes"] for s in self._stream_ids()
-        ]
-        lookback_s = max(expiries, default=DEFAULTS["expiry_minutes"]) * 60
+            # A retroactively expired/suppressed sample may still have its
+            # "answer now" notification up (reboot or clock jump past expiry
+            # bypasses the live expiry tick).
+            self.notifier.cancel(ev["sample"])
         self.db.kv_set(
-            "sync_meta", "last_materialized_at", fmt_utc(max(wm, now - lookback_s))
+            "sync_meta", "last_materialized_at", fmt_utc(max(wm, now - self._max_expiry_s(now)))
         )
         return emitted
 
@@ -347,7 +433,9 @@ class Engine:
         events = self.db.events_for_sample(sample_id)
         types = {ev["ev"] for _f, _l, ev in events}
         base = self._sample_base(sample_id, now)
-        terminal = types & {"answered", "skipped", "expired", "retracted", "suppressed"}
+        terminal = types & {
+            "answered", "skipped", "expired", "retracted", "suppressed", "unobserved",
+        }
         scheduled = parse_utc(due["scheduled_utc"])
         expiry_s = self.effective_settings(due["stream"], scheduled)["expiry_minutes"] * 60
 
@@ -519,6 +607,11 @@ class Engine:
         settings = self.effective_settings(stream_id, scheduled)
         events = [ev for _f, _l, ev in self.db.events_for_sample(sample_id)]
         n = len([ev for ev in events if ev["ev"] == "snoozed"]) + 1
+        # Past the window the sample is dead, not merely un-snoozeable: say so,
+        # otherwise "too close to expiry" is the last thing the user is told
+        # about a ping that has already gone (Tier 3 charter C2 F4).
+        if now >= scheduled + settings["expiry_minutes"] * 60:
+            return "expired"
         if n > settings["max_snoozes"]:
             return "max_snoozes"
         until = now + settings["snooze_minutes"] * 60

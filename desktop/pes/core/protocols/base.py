@@ -37,3 +37,9 @@ def register(protocol_type: str, fn: GenerateFn) -> None:
 
 def get_protocol(protocol_type: str) -> GenerateFn:
     return _REGISTRY[protocol_type]
+
+
+def get_protocol_or_none(protocol_type: str) -> GenerateFn | None:
+    """Total lookup: an unknown protocol type is a config this build cannot
+    compute, not a reason to crash on every tick (Tier 3 charter C5 F2/F6)."""
+    return _REGISTRY.get(protocol_type)

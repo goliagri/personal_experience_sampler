@@ -127,3 +127,46 @@ def test_concurrent_config_edit_conflict(mkdevice, clock, cloud):
     assert rejected["written_by"] == "laptop-dddd0002"
     assert rejected["streams"][0]["protocol"]["times_local"] == ["10:00"]
     assert json.loads(cloud.get("config/current.json"))["written_by"] == "phone-dddd0003"
+
+
+def test_unknown_protocol_disables_only_that_stream(mkdevice, clock):
+    """Tier 3 charter C5 F2/F6: a config naming a protocol this build cannot
+    compute must not stop the scheduler — the other streams keep pinging and
+    the client can say which one it cannot honour."""
+    future = fixed_stream()
+    future = {**future, "id": "future", "name": "From a newer client",
+              "protocol": {"type": "quantum_poisson", "rate": 3}}
+    dev = mkdevice("laptop-cccc0009")
+    dev.boot(base_config([fixed_stream(), future]))
+
+    clock.advance(24 * 3600)
+    dev.engine.tick()
+
+    known = dev.db.sample_rows(stream="st")
+    assert known, "the known stream must still generate"
+    assert dev.db.sample_rows(stream="future") == []
+    assert dev.engine.unknown_protocol_streams(dev.engine.clock.now()) == [
+        "From a newer client (quantum_poisson)"
+    ]
+
+
+def test_config_issues_reports_what_this_build_cannot_run(mkdevice, clock):
+    """Tier 3 charter C5 F6: `validate_config` guards the apply path, but a
+    config can reach `config_cache` another way. Re-check what we actually run
+    so the client can take what it understands and say what it cannot."""
+    dev = mkdevice("laptop-cccc0010")
+    dev.boot(base_config([fixed_stream()]))
+    assert dev.engine.config_issues(dev.engine.clock.now()) == []
+
+    config = dev.db.latest_config()
+    config["version"] = 999
+    config["streams"] = [
+        {**fixed_stream(), "id": "x", "name": "X", "protocol": {"type": "wat"}},
+    ]
+    dev.db.upsert_config(config)
+
+    issues = dev.engine.config_issues(dev.engine.clock.now())
+    assert "X (wat): this client cannot compute that protocol" in issues
+    assert any("bad_protocol_type" in i for i in issues)
+    # ...and the engine still runs: a future version number is not fatal.
+    dev.engine.tick()
